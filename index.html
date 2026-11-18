@@ -49,10 +49,10 @@ aside h3:first-child{margin-top:0}
 .item{padding:8px 12px;margin-bottom:6px;border-radius:12px;background:var(--panel);cursor:pointer}
 .item:hover{outline:2px solid var(--accent)}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
-.dot-picker{display:inline-block;width:12px;height:12px;padding:0;border:0;border-radius:50%;margin:0 8px 0 0;background:transparent;vertical-align:-1px;cursor:pointer;appearance:none;-webkit-appearance:none}
-.dot-picker::-webkit-color-swatch-wrapper{padding:0}
-.dot-picker::-webkit-color-swatch{border:0;border-radius:50%}
-.dot-picker::-moz-color-swatch{border:0;border-radius:50%}
+.person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb,var(--person-color) 70%,var(--fg))}
+.person-name small{color:inherit;opacity:.8}
+.person-name-picker{position:relative;display:inline-flex;align-items:center;cursor:pointer}
+.name-color-picker{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;opacity:0;cursor:pointer;appearance:none;-webkit-appearance:none}
 .slot-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
 .slot-form input[type=date],.slot-form button{grid-column:1/-1}
 .slot-form input{width:100%;min-width:0;padding:7px 8px}
@@ -62,7 +62,6 @@ aside h3:first-child{margin-top:0}
 .filter-person{padding:7px 8px;margin:5px 0;border-radius:8px;background:var(--panel)}
 .filter-person-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .person-ident{display:flex;align-items:center;gap:5px;min-width:0;flex:1}
-.person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .filter-count{font-size:11px;color:var(--muted)}
 .filter-statuses{display:flex;align-items:center;gap:3px;flex:0 1 auto;max-width:96px;overflow-x:auto}
 .filter-status{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;border-radius:50%;background:var(--person-color);color:#fff;font-size:10px;font-weight:700;line-height:1}
@@ -301,10 +300,12 @@ function side(best, names) {
     return {k, p, matches, count: matches.filter(Boolean).length};
   }).sort((a, b) => b.count - a.count || a.p.name.localeCompare(b.p.name));
   const people = ranked.map(({k, p, matches, count}) => {
-    const me = k === key(S.name), marker = me ? `<input class="dot-picker" type="color" value="${colorOf(p)}" aria-label="Change your color" title="Change your color">`
-      : S.filters.length ? '' : `<i class="dot" style="background:${colorOf(p)}"></i>`;
+    const me = k === key(S.name), color = colorOf(p);
+    const name = me
+      ? `<label class="person-name person-name-picker" style="--person-color:${color}"><span>${esc(p.name)} <small>(you)</small></span><input class="name-color-picker" type="color" value="${color}" aria-label="Change your color" title="Change your color"></label>`
+      : `<span class="person-name" style="--person-color:${color}">${esc(p.name)}</span>`;
     const statuses = matches.map((available, i) => `<span class="filter-status ${available ? 'yes' : 'no'}" style="--person-color:${colorOf(p)}" aria-label="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}" title="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}">${available ? '✓' : '×'}</span>`).join('');
-    return `<div class="${S.filters.length ? 'filter-person' : ''}"><div class="filter-person-head"><span class="person-ident">${marker}${S.filters.length ? `<span class="filter-statuses">${statuses}</span>` : ''}<span class="person-name">${esc(p.name)}${me ? ' <small>(you)</small>' : ''}</span></span>${S.filters.length ? `<span class="filter-count">${count}/${S.filters.length}</span>` : ''}</div></div>`;
+    return `<div class="${S.filters.length ? 'filter-person' : ''}"><div class="filter-person-head"><span class="person-ident">${S.filters.length ? `<span class="filter-statuses">${statuses}</span>` : ''}${name}</span>${S.filters.length ? `<span class="filter-count">${count}/${S.filters.length}</span>` : ''}</div></div>`;
   }).join('');
   const bestSection = best.max < 2
     ? '<h3>Best overlap</h3><p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
@@ -327,6 +328,12 @@ function side(best, names) {
   $('#side').querySelectorAll('[data-remove-filter]').forEach(el => el.onclick = () => {
     S.filters.splice(+el.dataset.removeFilter, 1); render();
   });
+  $('#side').onchange = e => {
+    if (!e.target.matches('.name-color-picker')) return;
+    const chosen = e.target.value.toLowerCase(), duplicate = Object.entries(S.people).some(([k, p]) => k !== key(S.name) && colorOf(p).toLowerCase() === chosen);
+    if (duplicate) { toast('That color is already used in this group.'); render(); return; }
+    save(mine(), chosen);
+  };
   document.querySelectorAll('.item[data-start]').forEach(el => el.onclick = () => {
     const time = +el.dataset.start; S.anchor = startOfDay(time); S.view = 1; render();
     $('#scroll').scrollTop = Math.max(0, (time - startOfDay(time)) / HOUR - 1) * S.hr;
@@ -504,12 +511,6 @@ async function group() {
     e.preventDefault();
     zoomAt(S.hr * Math.exp(-e.deltaY * .002), e.clientY);
   }, {passive: false});
-  $('#side').onchange = e => {
-    if (!e.target.matches('.dot-picker')) return;
-    const chosen = e.target.value.toLowerCase(), duplicate = Object.entries(S.people).some(([k, p]) => k !== key(S.name) && colorOf(p).toLowerCase() === chosen);
-    if (duplicate) { toast('That color is already used in this group.'); render(); return; }
-    save(mine(), chosen);
-  };
   $('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Invite link copied'), () => prompt('Copy this link:', location.href));
   $('#who').onclick = async () => {
     const old = S.name, ob = mine(); await askName();

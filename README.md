@@ -3,11 +3,7 @@
 A single-page website. Create a group, send the link, and everyone adds when
 they're free. No installs, no packages.
 
-## Deploy on GitHub Pages
-
-1. Put `index.html` in a GitHub repo.
-2. Repo **Settings > Pages**, set the source to your main branch, root folder.
-3. Your site is at `https://<user>.github.io/<repo>/`.
+Site: `https://<user>.github.io/<repo>/`.
 
 ## Turn on syncing (one-time, about 5 minutes)
 

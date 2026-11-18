@@ -44,9 +44,8 @@ Realtime Database. Nothing is stored on GitHub. (This is a one-time setup stage,
    ```
    There is no rule on `groups` itself, so nobody can list or browse groups.
    You can only read or write a group if you know its link.
-6. Open the **Data** tab and click the "Copy reference url" button. It looks like
-   `https://**[your-project]**-default-rtdb.firebaseio.com` (some regions end in
-   `.firebasedatabase.app`).
+6. Open the **Data** tab and click the "Copy reference url" button.`https://[your-project]-default-rtdb.firebaseio.com` (some regions end in
+   `.firebasedatabase.app`) should now be in your clipboard.
 7. In `index.html`, paste it between the quotes, with no trailing slash:
    ```js
    const DB = "https://your-project-default-rtdb.firebaseio.com";

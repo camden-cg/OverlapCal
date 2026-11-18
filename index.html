@@ -13,6 +13,7 @@
 body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px/1.4 "Google Sans",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
 button,select,input{font:inherit;color:inherit}
 input,select{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--bg)}
+#view{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
 .muted,small{color:var(--muted)}
 .btn{border:1px solid var(--line);background:none;border-radius:999px;padding:7px 16px;cursor:pointer}
 .btn:hover,.ib:hover{background:var(--panel)}
@@ -568,10 +569,22 @@ async function group() {
     if (S.view === 'year') { const d = new Date(S.anchor); d.setMonth(0, 1); S.anchor = startOfDay(d.getTime()); }
     S.drag = null; render();
   };
+  let horizontalWheel = 0, horizontalWheelTimer;
   $('#scroll').addEventListener('wheel', e => {
-    if ((!e.ctrlKey && !e.metaKey) || typeof S.view !== 'number') return;
+    if ((e.ctrlKey || e.metaKey) && typeof S.view === 'number') {
+      e.preventDefault();
+      zoomAt(S.hr * Math.exp(-e.deltaY * .002), e.clientY);
+      return;
+    }
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+    if (!delta) return;
     e.preventDefault();
-    zoomAt(S.hr * Math.exp(-e.deltaY * .002), e.clientY);
+    horizontalWheel += delta;
+    clearTimeout(horizontalWheelTimer);
+    horizontalWheelTimer = setTimeout(() => {
+      if (Math.abs(horizontalWheel) >= 15) step(horizontalWheel > 0 ? 1 : -1);
+      horizontalWheel = 0;
+    }, 140);
   }, {passive: false});
   $('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Invite link copied'), () => prompt('Copy this link:', location.href));
   $('#who').onclick = async () => {

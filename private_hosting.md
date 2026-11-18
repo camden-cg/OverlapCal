@@ -1,3 +1,5 @@
+Follow the steps below if you want to keep all data 100% private within your group.
+
 ## Deploy on GitHub Pages
 
 1. Put `index.html` in a GitHub repo.

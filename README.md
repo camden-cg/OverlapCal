@@ -1,3 +1,5 @@
+NOTE: PROJECT IN ALPHA TESTING
+
 # Hangout Finder
 
 A single-page website. Create a group and share the link so everyone can easily upload their availability.

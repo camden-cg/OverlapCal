@@ -26,7 +26,7 @@ Realtime Database. Nothing is stored on GitHub. (This is a one-time setup stage,
 1. Go to console.firebase.google.com and sign in with a Google account.
 2. Click **Create a project** (or **Add project**), name it, turn off Google
    Analytics if asked, and click **Create**.
-3. In the left menu, open **Build > Realtime Database** and click **Create Database**.
+3. In the left menu, open **Database & Storage > Realtime Database** and click **Create Database**.
 4. Pick any location, choose **Start in locked mode**, and click **Enable**.
 5. Open the **Rules** tab, replace everything with the rules below, and click **Publish**:
    ```json

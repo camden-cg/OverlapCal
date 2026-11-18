@@ -18,6 +18,9 @@ input,select{border:1px solid var(--line);border-radius:8px;padding:9px 12px;bac
 .btn:hover,.ib:hover{background:var(--panel)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
 .ib{width:36px;height:36px;border-radius:50%;border:0;background:none;cursor:pointer;font-size:22px;line-height:1}
+.color-button svg{width:21px;height:21px;vertical-align:middle}
+.color-swatch{fill:var(--user-color,#4285f4)}
+.color-input{position:fixed;left:-10000px;width:1px;height:1px;opacity:0;pointer-events:none}
 header{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .logo{font-size:20px;margin-right:8px}
 main{flex:1;display:flex;min-height:0}
@@ -231,7 +234,8 @@ function render() {
   const names = Object.keys(S.people).sort(), best = bestAll();
   $('#ttl').textContent = S.title; document.title = (S.title ? S.title + ' · ' : '') + 'Hangout Finder';
   $('#who').textContent = S.name || 'Set name'; $('#view').value = S.view;
-  $('#mycolor').value = colorOf(S.people[key(S.name)] || {});
+  const myColor = colorOf(S.people[key(S.name)] || {});
+  $('#mycolor').value = myColor; $('#colorButton').style.setProperty('--user-color', myColor);
   if (S.view === 'year') {
     $('#range').textContent = new Date(S.anchor).getFullYear();
     renderYear(); side(best, names); return;
@@ -425,7 +429,8 @@ async function group() {
   document.body.innerHTML = `<header><b class="logo">Hangout Finder</b><span id="ttl" class="muted"></span><span style="flex:1"></span>
     <button class="btn" id="today">Today</button><button class="ib" id="prev">‹</button><button class="ib" id="next">›</button><b id="range" style="min-width:150px"></b>
     <select id="view"><option value="1">Day</option><option value="3">3 days</option><option value="7">Week</option><option value="14">2 weeks</option><option value="month">Month</option><option value="year">Year</option></select>
-    <input id="mycolor" type="color" title="Choose your color" aria-label="Choose your color" style="width:42px;height:36px;padding:3px">
+    <button class="ib color-button" id="colorButton" title="Choose your color" aria-label="Choose your color"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1.5a1.5 1.5 0 0 0 1.1-2.5 1.4 1.4 0 0 1 1-2.5H18a3 3 0 0 0 3-3c0-5-4-10-9-10Z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="10" r="1.2" fill="#4285f4"/><circle cx="11" cy="7" r="1.2" fill="#ea4335"/><circle cx="15" cy="8" r="1.2" fill="#fbbc04"/><circle class="color-swatch" cx="12" cy="13" r="2.1"/></svg></button>
+    <input class="color-input" id="mycolor" type="color" aria-hidden="true" tabindex="-1">
     <button class="btn" id="copy">Copy invite link</button><button class="btn" id="who"></button></header>
     <main><div id="scroll" aria-label="Calendar: hold Control or Command while scrolling to zoom, or use a two-finger pinch"><div class="row" id="head"></div><div id="body"></div></div><aside id="side"></aside></main><div id="toast"></div>`;
   S.name = localStorage.getItem('hf-name:' + gid) || '';
@@ -450,6 +455,12 @@ async function group() {
     e.preventDefault();
     zoomAt(S.hr * Math.exp(-e.deltaY * .002), e.clientY);
   }, {passive: false});
+  $('#colorButton').onclick = () => {
+    const picker = $('#mycolor');
+    if (picker.showPicker) {
+      try { picker.showPicker(); } catch { picker.click(); }
+    } else picker.click();
+  };
   $('#mycolor').onchange = e => {
     const chosen = e.target.value.toLowerCase(), duplicate = Object.entries(S.people).some(([k, p]) => k !== key(S.name) && colorOf(p).toLowerCase() === chosen);
     if (duplicate) { toast('That color is already used in this group.'); render(); return; }

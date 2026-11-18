@@ -62,8 +62,14 @@ aside h3:first-child{margin-top:0}
 <body>
 <script>
 
+
+  
+\\THIS IS WHAT YOU ARE REPLACING WITH THE FIREBASE LINK YOU JUST COPIED
+
 const DB = "https://overlapcal-default-rtdb.firebaseio.com/";
 
+
+  
 const HR = 48, GUT = 56, HOUR = 36e5, $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hue = n => [...n.toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);

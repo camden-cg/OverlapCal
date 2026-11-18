@@ -2,9 +2,9 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
+  # Publish the live site and a preview of the website branch.
   push:
-    branches: ["main"]
+    branches: ["main", "website"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -15,29 +15,38 @@ permissions:
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout live site
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+      - name: Checkout preview
+        uses: actions/checkout@v4
+        with:
+          ref: website
+          path: website
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Assemble site and preview
+        run: |
+          mkdir -p site/preview
+          rsync -a --exclude='.git' --exclude='.github' main/ site/
+          rsync -a --exclude='.git' --exclude='.github' website/ site/preview/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: site
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

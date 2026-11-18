@@ -7,7 +7,7 @@ Follow the steps below if you want to keep all data 100% private within your gro
 3. Your site is at `https://<user>.github.io/<repo>/`.
 Site: `https://<user>.github.io/<repo>/`.
 
-## Turn on syncing (one-time, about 5 minutes)
+## Turn on syncing (one-time)
 
 GitHub Pages can't store data, so availability lives in your own free Firebase
 Realtime Database. Nothing is stored on GitHub.

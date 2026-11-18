@@ -53,6 +53,19 @@ aside h3:first-child{margin-top:0}
 .dot-picker::-webkit-color-swatch-wrapper{padding:0}
 .dot-picker::-webkit-color-swatch{border:0;border-radius:50%}
 .dot-picker::-moz-color-swatch{border:0;border-radius:50%}
+.slot-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.slot-form input[type=date],.slot-form button{grid-column:1/-1}
+.slot-form input{width:100%;min-width:0;padding:7px 8px}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.filter-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:4px 7px;background:var(--panel);font-size:11px}
+.filter-chip button{border:0;background:none;cursor:pointer;padding:0 1px;font-size:15px;line-height:1}
+.filter-person{padding:7px 8px;margin:5px 0;border-radius:8px;background:var(--panel)}
+.filter-person-head{display:flex;align-items:center;justify-content:space-between}
+.filter-count{font-size:11px;color:var(--muted)}
+.filter-statuses{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 0 18px}
+.filter-status{font-size:10px;border-radius:6px;padding:2px 5px}
+.filter-status.yes{background:rgba(52,168,83,.16);color:#188038}
+.filter-status.no{background:var(--bg);color:var(--muted)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20}
 .card{background:var(--bg);border-radius:16px;padding:24px;width:min(380px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.3)}
 .card h2{margin:0 0 4px}
@@ -116,6 +129,8 @@ const fmtT = t => new Date(t).toLocaleTimeString([], {hour: 'numeric', minute: '
 const fmtD = t => new Date(t).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
 const addDays = (t, n) => { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); };
 const startOfDay = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const inputDate = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const slotTime = (date, time) => { const [y, m, d] = date.split('-').map(Number), [h, min] = time.split(':').map(Number); return new Date(y, m - 1, d, h, min).getTime(); };
 const merge = bs => { const o = []; for (const b of [...bs].sort((a, c) => a.s - c.s)) { const l = o[o.length - 1]; l && b.s <= l.e ? l.e = Math.max(l.e, b.e) : o.push({s: b.s, e: b.e}); } return o; };
 const toast = m => { const t = $('#toast'); t.textContent = m; t.className = 'on'; clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 2200); };
 
@@ -162,7 +177,7 @@ function remember(id, title) {
 }
 
 // ---- group page ----
-const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map()};
+const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map(), filters: []};
 const mine = () => (S.people[key(S.name)] || {}).blocks || [];
 const days = () => { const count = +S.view, s = count >= 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: count}, (_, i) => addDays(s, i)); };
 const monthStart = t => { const d = new Date(t); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -179,17 +194,25 @@ const norm = g => {
 
 function bestAll() {
   const P = Object.values(S.people).filter(p => p.blocks.length);
+  const total = Object.keys(S.people).length;
   const pts = [...new Set(P.flatMap(p => p.blocks.flatMap(b => [b.s, b.e])))].sort((a, b) => a - b), segs = [];
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], z = pts[i + 1], who = P.filter(p => p.blocks.some(x => x.s <= a && x.e >= z)).map(p => p.name).sort();
-    if (who.length >= 2) segs.push({s: a, e: z, who});
+    if (who.length) segs.push({s: a, e: z, who});
   }
   const max = Math.max(0, ...segs.map(s => s.who.length)), list = [];
-  for (const s of segs.filter(s => s.who.length === max)) {
-    const l = list[list.length - 1];
-    l && l.e === s.s && l.who.join() === s.who.join() ? l.e = s.e : list.push({...s});
+  const join = matches => {
+    const out = [];
+    for (const s of matches) {
+      const last = out[out.length - 1];
+      last && last.e === s.s && last.who.join() === s.who.join() ? last.e = s.e : out.push({...s});
+    }
+    return out;
+  };
+  if (max >= 2) {
+    for (const s of join(segs.filter(s => s.who.length === max))) list.push(s);
   }
-  return {max, list};
+  return {max, list, everyone: total ? join(segs.filter(s => s.who.length === total)) : []};
 }
 
 const availableOn = (person, start, end) => person.blocks.some(b => b.s < end && b.e > start);
@@ -269,20 +292,40 @@ function render() {
 
 function side(best, names) {
   const total = names.length, future = best.list.filter(x => x.e > Date.now()).slice(0, 8);
-  $('#side').innerHTML = '<h3>Best times</h3>' + (best.max < 2 ? '<p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
+  const timeLabel = x => `${fmtD(x.s)} · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}`;
+  const everyone = best.everyone.map(x => `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b></div>`).join('');
+  const chips = S.filters.map((f, i) => `<span class="filter-chip"><span>${timeLabel(f)}</span><button type="button" data-remove-filter="${i}" aria-label="Remove time filter">×</button></span>`).join('');
+  const ranked = names.map(k => {
+    const p = S.people[k], matches = S.filters.map(f => p.blocks.some(b => b.s <= f.s && b.e >= f.e));
+    return {k, p, matches, count: matches.filter(Boolean).length};
+  }).sort((a, b) => b.count - a.count || a.p.name.localeCompare(b.p.name));
+  const people = ranked.map(({k, p, matches, count}) => {
+    const me = k === key(S.name), marker = me ? `<input class="dot-picker" type="color" value="${colorOf(p)}" aria-label="Change your color" title="Change your color">`
+      : `<i class="dot" style="background:${colorOf(p)}"></i>`;
+    const statuses = matches.map((available, i) => `<span class="filter-status ${available ? 'yes' : 'no'}" title="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}">${available ? '✓' : '×'} ${i + 1}</span>`).join('');
+    return `<div class="${S.filters.length ? 'filter-person' : ''}"><div class="filter-person-head">${marker}${esc(p.name)}${me ? ' <small>(you)</small>' : ''}${S.filters.length ? `<span class="filter-count">${count}/${S.filters.length}</span>` : ''}</div>${S.filters.length ? `<div class="filter-statuses">${statuses}</div>` : ''}</div>`;
+  }).join('');
+  $('#side').innerHTML = '<h3>Everyone free</h3>' + (everyone || '<p class="muted">No times found when everyone is free.</p>')
+    + '<h3>Best overlap</h3>' + (best.max < 2 ? '<p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
     : `<p class="muted">${best.max === total ? 'Everyone is free' : best.max + ' of ' + total + ' people free'}</p>` + future.map((x, i) =>
-      `<div class="item" data-i="${i}"><b>${fmtD(x.s)}</b> · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}${best.max < total ? `<br><small>${x.who.map(esc).join(', ')}</small>` : ''}</div>`).join(''))
-    + '<h3>People</h3>' + (names.map(k => {
-      const p = S.people[k], me = k === key(S.name);
-      const marker = me ? `<input class="dot-picker" type="color" value="${colorOf(p)}" aria-label="Change your color" title="Change your color">`
-        : `<i class="dot" style="background:${colorOf(p)}"></i>`;
-      return `<div style="padding:3px 0">${marker}${esc(p.name)}${me ? ' <small>(you)</small>' : ''}</div>`;
-    }).join('') || '<p class="muted">Nobody yet.</p>')
+      `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b>${best.max < total ? `<br><small>${x.who.map(esc).join(', ')}</small>` : ''}</div>`).join(''))
+    + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><input id="slotStart" type="time" aria-label="Start time" value="18:00" required><input id="slotEnd" type="time" aria-label="End time" value="19:00" required><button class="btn" type="submit">Add time filter</button></form>'
+    + `<div class="filter-chips">${chips}</div><h3>People</h3>` + (people || '<p class="muted">Nobody yet.</p>')
     + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';
   $('#clear').onclick = () => mine().length && confirm('Remove all your free times?') && save([]);
-  document.querySelectorAll('.item').forEach(el => el.onclick = () => {
-    const x = future[+el.dataset.i]; S.anchor = startOfDay(x.s); S.view = 1; render();
-    $('#scroll').scrollTop = Math.max(0, (x.s - startOfDay(x.s)) / HOUR - 1) * S.hr;
+  $('#side').onsubmit = e => {
+    if (e.target.id !== 'slotForm') return;
+    e.preventDefault();
+    const s = slotTime($('#slotDate').value, $('#slotStart').value), end = slotTime($('#slotDate').value, $('#slotEnd').value);
+    if (end <= s) { toast('End time must be after start time.'); return; }
+    S.filters.push({s, e: end}); render();
+  };
+  $('#side').querySelectorAll('[data-remove-filter]').forEach(el => el.onclick = () => {
+    S.filters.splice(+el.dataset.removeFilter, 1); render();
+  });
+  document.querySelectorAll('.item[data-start]').forEach(el => el.onclick = () => {
+    const time = +el.dataset.start; S.anchor = startOfDay(time); S.view = 1; render();
+    $('#scroll').scrollTop = Math.max(0, (time - startOfDay(time)) / HOUR - 1) * S.hr;
   });
 }
 

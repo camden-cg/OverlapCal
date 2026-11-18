@@ -28,15 +28,15 @@ main{flex:1;display:flex;min-height:0}
 .dh small{display:block;font-size:11px;letter-spacing:.6px}
 .dh b{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:22px;font-weight:400}
 .dh.today b{background:var(--accent);color:var(--onaccent)}
-#body{height:calc(24*var(--hr));user-select:none;-webkit-user-select:none;touch-action:pan-y;cursor:crosshair}
+#body{user-select:none;-webkit-user-select:none;touch-action:pan-y;cursor:crosshair}
 .gut{position:relative}
 .gut span{position:absolute;right:8px;transform:translateY(-50%);font-size:10px;color:var(--muted)}
 .col{position:relative;border-left:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% var(--hr)}
 .ev{position:absolute;border-radius:8px;padding:3px 6px;overflow:hidden;font-size:12px;line-height:1.25;pointer-events:none;z-index:1;
-  background:hsl(var(--c) var(--evs) var(--evl));color:hsl(var(--c) 60% var(--evfg));border-left:4px solid hsl(var(--c) 65% var(--evbar));box-shadow:0 0 0 1px var(--bg)}
+  background:color-mix(in srgb,var(--c) 24%,var(--bg));color:var(--fg);border-left:4px solid var(--c);box-shadow:0 0 0 1px var(--bg)}
 .ev b{display:block}
 .ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35)}
-.ev.ghost{opacity:.8;outline:2px dashed hsl(var(--c) 65% var(--evbar));z-index:2}
+.ev.ghost{opacity:.8;outline:2px dashed var(--c);z-index:2}
 .x{position:absolute;top:2px;right:2px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.15);cursor:pointer;pointer-events:auto;display:none;line-height:1;font-size:13px;padding:0}
 .ev.me:hover .x{display:block}
 @media(hover:none){.ev.me .x{display:block}}
@@ -56,6 +56,30 @@ aside h3:first-child{margin-top:0}
 #toast.on{opacity:1}
 .land{max-width:420px;margin:10vh auto;padding:0 20px;display:flex;flex-direction:column;gap:12px}
 .land a{color:var(--accent);text-decoration:none;padding:6px 0}
+.zoom{display:flex;align-items:center;gap:2px}
+.zoom .ib{width:32px;height:32px;font-size:19px}
+.zoom-label{min-width:42px;text-align:center;font-size:12px;color:var(--muted)}
+.calendar-view{padding:18px;max-width:1100px;margin:0 auto}
+.month-grid{display:grid;grid-template-columns:repeat(7,minmax(34px,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.weekday,.month-day{border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center}
+.weekday{padding:8px 2px;color:var(--muted);font-size:12px;font-weight:600}
+.month-day{min-height:84px;padding:8px 4px;cursor:pointer}
+.month-day:hover,.year-month:hover{background:var(--panel)}
+.month-day.other{color:var(--muted);opacity:.55}
+.month-day.today .day-number{background:var(--accent);color:var(--onaccent)}
+.day-number{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%}
+.availability-dots{display:flex;justify-content:center;flex-wrap:wrap;gap:3px;margin:7px auto 0;max-width:56px}
+.availability-dots i{width:7px;height:7px;border-radius:50%}
+.year-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:14px}
+.year-month{border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer}
+.year-month h3{margin:0 0 8px;font-size:14px}
+.mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:10px}
+.mini-grid span{min-height:18px;display:grid;place-items:center;border-radius:4px}
+.mini-grid .mini-weekday{color:var(--muted);font-weight:600}
+.mini-grid .mini-day.other{opacity:.3}
+.mini-grid .mini-day.has{background:color-mix(in srgb,var(--day-color) 28%,var(--bg))}
+.mini-grid .mini-day.overlap{outline:1px solid #34a853}
+@media(max-width:700px){.year-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.month-day{min-height:60px;padding:4px 1px}.availability-dots{gap:2px}}
 @media(max-width:800px){main{flex-direction:column}aside{width:auto;border-left:0;border-top:1px solid var(--line);max-height:38%}}
 </style>
 </head>
@@ -72,7 +96,20 @@ const DB = "https://overlapcal-default-rtdb.firebaseio.com/";
   
 const HR = 48, GUT = 56, HOUR = 36e5, $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const hue = n => [...n.toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+const COLORS = ['#4285f4','#ea4335','#34a853','#fbbc04','#a142f4','#ff6d01','#12a4a6','#e52592','#5f6368','#7cb342','#8e24aa','#00897b'];
+const validColor = c => /^#[0-9a-f]{6}$/i.test(c || '');
+const colorHex = h => {
+  const f = n => { const k = (n + h / 30) % 12, a = .325; return .5 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+  return '#' + [f(0), f(8), f(4)].map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('');
+};
+const nextColor = used => {
+  const palette = COLORS.find(c => !used.has(c));
+  if (palette) return palette;
+  for (let h = 0; h < 360; h++) { const color = colorHex(h); if (!used.has(color)) return color; }
+  for (let n = 1; n <= 0xffffff; n++) { const color = '#' + n.toString(16).padStart(6, '0'); if (!used.has(color)) return color; }
+  throw Error('No unused participant colors remain.');
+};
+const colorOf = p => validColor(p.color) ? p.color : '#4285f4';
 const key = n => n.trim().toLowerCase().replace(/[.$#\[\]\/]/g, '_');
 const fmtT = t => new Date(t).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
 const fmtD = t => new Date(t).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
@@ -124,11 +161,20 @@ function remember(id, title) {
 }
 
 // ---- group page ----
-const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0};
+const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0, hr: HR};
 const mine = () => (S.people[key(S.name)] || {}).blocks || [];
-const days = () => { const s = S.view === 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: S.view}, (_, i) => addDays(s, i)); };
-const norm = g => Object.fromEntries(Object.entries(g.people || {}).map(([k, v]) => [k, {name: v.name || k,
-  blocks: merge(Object.values(v.blocks || {}).filter(b => b && b.e > b.s))}]));
+const days = () => { const count = +S.view, s = count >= 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: count}, (_, i) => addDays(s, i)); };
+const monthStart = t => { const d = new Date(t); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const norm = g => {
+  const people = {}, used = new Set();
+  for (const [k, v] of Object.entries(g.people || {})) {
+    let color = validColor(v.color) && !used.has(v.color.toLowerCase()) ? v.color.toLowerCase() : null;
+    if (!color) color = nextColor(used);
+    used.add(color);
+    people[k] = {name: v.name || k, color, blocks: merge(Object.values(v.blocks || {}).filter(b => b && b.e > b.s))};
+  }
+  return people;
+};
 
 function bestAll() {
   const P = Object.values(S.people).filter(p => p.blocks.length);
@@ -145,34 +191,82 @@ function bestAll() {
   return {max, list};
 }
 
-async function save(blocks) {
-  const k = key(S.name); S.people[k] = {name: S.name, blocks}; S.pending++;
-  try { await api.put(gid, 'people/' + k, {name: S.name, blocks}); } catch { toast("Couldn't save. Check your connection."); }
+const availableOn = (person, start, end) => person.blocks.some(b => b.s < end && b.e > start);
+function calendarDots(start, end) {
+  const people = Object.values(S.people).filter(p => availableOn(p, start, end));
+  return `<span class="availability-dots">${people.map(p => `<i title="${esc(p.name)}" style="background:${colorOf(p)}"></i>`).join('')}</span>`;
+}
+function renderMonth() {
+  const first = monthStart(S.anchor), firstDate = new Date(first), offset = firstDate.getDay();
+  const count = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0).getDate();
+  const daysHtml = Array.from({length: Math.ceil((offset + count) / 7) * 7}, (_, i) => {
+    const day = addDays(first - offset * 864e5, i), date = new Date(day), inMonth = date.getMonth() === firstDate.getMonth();
+    return `<div class="month-day${inMonth ? '' : ' other'}${day === startOfDay(Date.now()) ? ' today' : ''}" data-day="${day}"><span class="day-number">${date.getDate()}</span>${calendarDots(day, addDays(day, 1))}</div>`;
+  }).join('');
+  $('#scroll').innerHTML = `<section class="calendar-view"><div class="month-grid">${['S','M','T','W','T','F','S'].map(d => `<div class="weekday">${d}</div>`).join('')}${daysHtml}</div></section>`;
+  document.querySelectorAll('.month-day').forEach(el => el.onclick = () => { S.anchor = +el.dataset.day; S.view = 1; render(); });
+}
+function renderYear() {
+  const year = new Date(S.anchor).getFullYear(), week = ['S','M','T','W','T','F','S'];
+  const months = Array.from({length:12}, (_, m) => {
+    const first = new Date(year, m, 1).getTime(), start = addDays(first, -new Date(first).getDay()), count = new Date(year, m + 1, 0).getDate();
+    const cells = Array.from({length:Math.ceil((new Date(first).getDay() + count) / 7) * 7}, (_, i) => {
+      const day = addDays(start, i), date = new Date(day), inside = date.getMonth() === m, people = Object.values(S.people).filter(p => availableOn(p, day, addDays(day, 1)));
+      return `<span class="mini-day${inside ? '' : ' other'}${people.length ? ' has' : ''}${people.length > 1 ? ' overlap' : ''}"${people.length ? ` style="--day-color:${colorOf(people[0])}" title="${people.map(p => esc(p.name)).join(', ')}"` : ''}>${date.getDate()}</span>`;
+    }).join('');
+    return `<div class="year-month" data-month="${m}"><h3>${new Date(year,m,1).toLocaleDateString([], {month:'long'})}</h3><div class="mini-grid">${week.map(d => `<span class="mini-weekday">${d}</span>`).join('')}${cells}</div></div>`;
+  }).join('');
+  $('#scroll').innerHTML = `<section class="calendar-view"><div class="year-grid">${months}</div></section>`;
+  document.querySelectorAll('.year-month').forEach(el => el.onclick = () => { const d = new Date(year, +el.dataset.month, 1); S.anchor = d.getTime(); S.view = 'month'; render(); });
+}
+
+async function save(blocks, requestedColor) {
+  const k = key(S.name), used = new Set(Object.entries(S.people).filter(([id]) => id !== k).map(([, p]) => colorOf(p).toLowerCase()));
+  const current = (S.people[k] || {}).color;
+  const color = validColor(requestedColor) && !used.has(requestedColor.toLowerCase()) ? requestedColor.toLowerCase()
+    : validColor(current) && !used.has(current.toLowerCase()) ? current.toLowerCase() : nextColor(used);
+  S.people[k] = {name: S.name, color, blocks}; S.pending++;
+  try { await api.put(gid, 'people/' + k, {name: S.name, color, blocks}); } catch { toast("Couldn't save. Check your connection."); }
   S.pending--; render();
 }
 
 function render() {
-  const D = days(), today = startOfDay(Date.now()), names = Object.keys(S.people).sort(), n = Math.max(names.length, 1), best = bestAll();
-  $('#scroll').style.setProperty('--n', S.view);
+  const names = Object.keys(S.people).sort(), best = bestAll();
   $('#ttl').textContent = S.title; document.title = (S.title ? S.title + ' · ' : '') + 'Hangout Finder';
   $('#who').textContent = S.name || 'Set name'; $('#view').value = S.view;
+  $('#mycolor').value = colorOf(S.people[key(S.name)] || {});
+  $('#zoom').hidden = typeof S.view !== 'number';
+  $('#zoomlabel').textContent = `${Math.round(S.hr / HR * 100)}%`;
+  if (S.view === 'year') {
+    $('#range').textContent = new Date(S.anchor).getFullYear();
+    renderYear(); side(best, names); return;
+  }
+  if (S.view === 'month') {
+    $('#range').textContent = new Date(S.anchor).toLocaleDateString([], {month:'long',year:'numeric'});
+    renderMonth(); side(best, names); return;
+  }
+  if (!$('#head')) $('#scroll').innerHTML = '<div class="row" id="head"></div><div id="body"></div>';
+  const D = days(), today = startOfDay(Date.now()), n = Math.max(names.length, 1), hr = S.hr;
+  document.documentElement.style.setProperty('--hr', hr + 'px');
+  $('#scroll').style.setProperty('--n', S.view);
   const a = new Date(D[0]), z = new Date(D[D.length - 1]), mo = d => d.toLocaleDateString([], {month: 'short'});
   $('#range').textContent = a.getMonth() === z.getMonth() ? `${mo(a)} ${a.getDate()}${D.length < 2 ? '' : ' – ' + z.getDate()}, ${z.getFullYear()}` : `${mo(a)} ${a.getDate()} – ${mo(z)} ${z.getDate()}, ${z.getFullYear()}`;
   $('#head').innerHTML = '<div></div>' + D.map(ds => `<div class="dh${ds === today ? ' today' : ''}"><small>${new Date(ds).toLocaleDateString([], {weekday: 'short'}).toUpperCase()}</small><b>${new Date(ds).getDate()}</b></div>`).join('');
-  const hours = Array.from({length: 23}, (_, i) => `<span style="top:${(i + 1) * HR}px">${new Date(2000, 0, 1, i + 1).toLocaleTimeString([], {hour: 'numeric'})}</span>`).join('');
+  const hours = Array.from({length: 23}, (_, i) => `<span style="top:${(i + 1) * hr}px">${new Date(2000, 0, 1, i + 1).toLocaleTimeString([], {hour: 'numeric'})}</span>`).join('');
+  $('#body').style.height = `${24 * hr}px`;
   $('#body').innerHTML = `<div class="gut">${hours}</div>` + D.map(ds => {
     const de = addDays(ds, 1); let h = '';
-    const pos = (s, e) => { const p = Math.max(s, ds), q = Math.min(e, de); return `top:${(p - ds) / HOUR * HR}px;height:${Math.max((q - p) / HOUR * HR, 16)}px`; };
+    const pos = (s, e) => { const p = Math.max(s, ds), q = Math.min(e, de); return `top:${(p - ds) / HOUR * hr}px;height:${Math.max((q - p) / HOUR * hr, 16)}px`; };
     best.list.forEach(x => { if (x.s < de && x.e > ds) h += `<div class="best" style="${pos(x.s, x.e)}"></div>`; });
     names.forEach((k, i) => S.people[k].blocks.forEach(b => {
       if (b.s >= de || b.e <= ds) return;
       const p = S.people[k], me = k === key(S.name), s = Math.max(b.s, ds), e = Math.min(b.e, de);
-      h += `<div class="ev${me ? ' me' : ''}" style="${pos(b.s, b.e)};left:calc(${i} * 100% / ${n} + 1px);width:calc(100% / ${n} - 3px);--c:${hue(p.name)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
+      h += `<div class="ev${me ? ' me' : ''}" style="${pos(b.s, b.e)};left:calc(${i} * 100% / ${n} + 1px);width:calc(100% / ${n} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
     }));
-    if (ds === today) h += `<div class="now" style="top:${(Date.now() - ds) / HOUR * HR}px"></div>`;
+    if (ds === today) h += `<div class="now" style="top:${(Date.now() - ds) / HOUR * hr}px"></div>`;
     return `<div class="col">${h}</div>`;
   }).join('');
-  side(best, names); ghost();
+  side(best, names); wire(); ghost();
 }
 
 function side(best, names) {
@@ -180,45 +274,48 @@ function side(best, names) {
   $('#side').innerHTML = '<h3>Best times</h3>' + (best.max < 2 ? '<p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
     : `<p class="muted">${best.max === total ? 'Everyone is free' : best.max + ' of ' + total + ' people free'}</p>` + future.map((x, i) =>
       `<div class="item" data-i="${i}"><b>${fmtD(x.s)}</b> · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}${best.max < total ? `<br><small>${x.who.map(esc).join(', ')}</small>` : ''}</div>`).join(''))
-    + '<h3>People</h3>' + (names.map(k => `<div style="padding:3px 0"><i class="dot" style="background:hsl(${hue(S.people[k].name)} 65% 50%)"></i>${esc(S.people[k].name)}${k === key(S.name) ? ' <small>(you)</small>' : ''}</div>`).join('') || '<p class="muted">Nobody yet.</p>')
+    + '<h3>People</h3>' + (names.map(k => `<div style="padding:3px 0"><i class="dot" style="background:${colorOf(S.people[k])}"></i>${esc(S.people[k].name)}${k === key(S.name) ? ' <small>(you)</small>' : ''}</div>`).join('') || '<p class="muted">Nobody yet.</p>')
     + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';
   $('#clear').onclick = () => mine().length && confirm('Remove all your free times?') && save([]);
   document.querySelectorAll('.item').forEach(el => el.onclick = () => {
-    const x = future[+el.dataset.i]; S.anchor = startOfDay(x.s); render();
-    $('#scroll').scrollTop = Math.max(0, (x.s - startOfDay(x.s)) / HOUR - 1) * HR;
+    const x = future[+el.dataset.i]; S.anchor = startOfDay(x.s); S.view = 1; render();
+    $('#scroll').scrollTop = Math.max(0, (x.s - startOfDay(x.s)) / HOUR - 1) * S.hr;
   });
 }
 
 // ---- drag to select (mouse) / tap start then tap end (touch) ----
 const rng = d => {
-  const tmin = Math.min(d.a.m, d.b.m); let tmax = Math.max(d.a.m, d.b.m) + 30;
-  if (!(d.tap || d.moved) && d.a.d === d.b.d && d.a.m === d.b.m) tmax = tmin + 60;  // plain click = 1 hour
-  return {d0: Math.min(d.a.d, d.b.d), d1: Math.max(d.a.d, d.b.d), tmin, tmax: Math.min(tmax, 1440)};
+  const D = days();
+  const a = D[d.a.d] + d.a.m * 60000;
+  const b = D[d.b.d] + d.b.m * 60000;
+  return {s: Math.min(a, b), e: Math.max(a, b) + 30 * 60000};
 };
 function cellAt(e) {
   const r = $('#body').getBoundingClientRect(), w = (r.width - GUT) / S.view;
   return {d: Math.min(Math.max(Math.floor((e.clientX - r.left - GUT) / w), 0), S.view - 1),
-          m: Math.min(Math.max(Math.floor((e.clientY - r.top) / HR * 2) * 30, 0), 1410)};
+          m: Math.min(Math.max(Math.floor((e.clientY - r.top) / S.hr * 2) * 30, 0), 1410)};
 }
 function ghost() {
   document.querySelectorAll('.ghost').forEach(g => g.remove());
   if (!S.drag) return;
-  const r = rng(S.drag), cols = document.querySelectorAll('.col'), t = m => fmtT(new Date(2000, 0, 1, 0, m));
-  for (let i = r.d0; i <= r.d1; i++) {
+  const r = rng(S.drag), D = days(), cols = document.querySelectorAll('.col');
+  D.forEach((ds, i) => {
+    const de = addDays(ds, 1), start = Math.max(r.s, ds), end = Math.min(r.e, de);
+    if (end <= start) return;
     const el = document.createElement('div'); el.className = 'ev ghost';
-    el.style.cssText = `top:${r.tmin / 60 * HR}px;height:${(r.tmax - r.tmin) / 60 * HR}px;left:1px;right:2px;--c:${hue(S.name)}`;
-    el.innerHTML = `<b>${esc(S.name)}</b>${t(r.tmin)} – ${t(r.tmax)}`; cols[i].append(el);
-  }
+    el.style.cssText = `top:${(start - ds) / HOUR * S.hr}px;height:${(end - start) / HOUR * S.hr}px;left:1px;right:2px;--c:${colorOf(S.people[key(S.name)] || {})}`;
+    el.innerHTML = `<b>${esc(S.name)}</b>${fmtT(start)} – ${fmtT(end)}`; cols[i].append(el);
+  });
 }
 function commit(d) {
-  S.drag = null; const r = rng(d), D = days(), add = [];
-  for (let i = r.d0; i <= r.d1; i++) add.push({s: D[i] + r.tmin * 6e4, e: D[i] + r.tmax * 6e4});
-  save(merge([...mine(), ...add]));
+  const r = rng(d); S.drag = null;
+  ghost();
+  save(merge([...mine(), {s: r.s, e: r.e}]));
 }
 function wire() {
   const body = $('#body'), inGutter = e => e.clientX - body.getBoundingClientRect().left < GUT;
   body.onpointerdown = e => {
-    if (e.target.closest('.x') || inGutter(e) || e.pointerType === 'touch') return;
+    if (typeof S.view !== 'number' || e.target.closest('.x') || inGutter(e) || e.pointerType === 'touch') return;
     S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();
   };
   body.onpointermove = e => {
@@ -226,6 +323,7 @@ function wire() {
     const b = cellAt(e); S.drag.moved = S.drag.moved || b.d !== S.drag.a.d || b.m !== S.drag.a.m; S.drag.b = b; ghost();
   };
   body.onpointerup = e => {
+    if (typeof S.view !== 'number') return;
     if (e.target.closest('.x') || inGutter(e)) return;
     const c = cellAt(e);
     if (e.pointerType === 'touch') {
@@ -235,7 +333,7 @@ function wire() {
   };
   body.onpointercancel = () => { S.drag = null; ghost(); };
   body.onclick = e => { const x = e.target.closest('.x'); if (x) save(mine().filter(b => b.s !== +x.dataset.s)); };
-  addEventListener('keydown', e => { if (e.key === 'Escape') { S.drag = null; ghost(); } });
+  document.onkeydown = e => { if (e.key === 'Escape') { S.drag = null; ghost(); } };
 }
 
 
@@ -284,23 +382,48 @@ async function sync() {
 async function group() {
   document.body.innerHTML = `<header><b class="logo">Hangout Finder</b><span id="ttl" class="muted"></span><span style="flex:1"></span>
     <button class="btn" id="today">Today</button><button class="ib" id="prev">‹</button><button class="ib" id="next">›</button><b id="range" style="min-width:150px"></b>
-    <select id="view"><option value="1">Day</option><option value="3">3 days</option><option value="7">Week</option></select>
+    <select id="view"><option value="1">Day</option><option value="3">3 days</option><option value="7">Week</option><option value="14">2 weeks</option><option value="month">Month</option><option value="year">Year</option></select>
+    <span class="zoom" id="zoom"><button class="ib" id="zoomout" title="Zoom out" aria-label="Zoom out">−</button><span class="zoom-label" id="zoomlabel"></span><button class="ib" id="zoomin" title="Zoom in" aria-label="Zoom in">+</button><button class="ib" id="zoomreset" title="Reset zoom" aria-label="Reset zoom">↺</button></span>
+    <input id="mycolor" type="color" title="Choose your color" aria-label="Choose your color" style="width:42px;height:36px;padding:3px">
     <button class="btn" id="copy">Copy invite link</button><button class="btn" id="who"></button></header>
     <main><div id="scroll"><div class="row" id="head"></div><div id="body"></div></div><aside id="side"></aside></main><div id="toast"></div>`;
   S.name = localStorage.getItem('hf-name:' + gid) || '';
-  const step = d => { S.drag = null; S.anchor = addDays(S.anchor, d * S.view); render(); };
+  const step = d => {
+    S.drag = null;
+    if (S.view === 'year') { const date = new Date(S.anchor); date.setFullYear(date.getFullYear() + d); S.anchor = date.getTime(); }
+    else if (S.view === 'month') { const date = new Date(S.anchor); date.setMonth(date.getMonth() + d); S.anchor = monthStart(date.getTime()); }
+    else S.anchor = addDays(S.anchor, d * S.view);
+    render();
+  };
   $('#prev').onclick = () => step(-1); $('#next').onclick = () => step(1);
   $('#today').onclick = () => { S.anchor = startOfDay(Date.now()); render(); };
-  $('#view').onchange = e => { S.view = +e.target.value; S.drag = null; render(); };
+  $('#view').onchange = e => {
+    const value = e.target.value;
+    S.view = value === 'month' || value === 'year' ? value : +value;
+    if (S.view === 'month') S.anchor = monthStart(S.anchor);
+    if (S.view === 'year') { const d = new Date(S.anchor); d.setMonth(0, 1); S.anchor = startOfDay(d.getTime()); }
+    S.drag = null; render();
+  };
+  const zoom = delta => {
+    const scroll = $('#scroll'), ratio = S.hr / scroll.scrollTop;
+    S.hr = Math.max(24, Math.min(96, S.hr + delta));
+    render(); $('#scroll').scrollTop = Number.isFinite(ratio) ? S.hr / ratio : 0;
+  };
+  $('#zoomout').onclick = () => zoom(-8); $('#zoomin').onclick = () => zoom(8);
+  $('#zoomreset').onclick = () => { S.hr = HR; render(); };
+  $('#mycolor').onchange = e => {
+    const chosen = e.target.value.toLowerCase(), duplicate = Object.entries(S.people).some(([k, p]) => k !== key(S.name) && colorOf(p).toLowerCase() === chosen);
+    if (duplicate) { toast('That color is already used in this group.'); render(); return; }
+    save(mine(), chosen);
+  };
   $('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Invite link copied'), () => prompt('Copy this link:', location.href));
   $('#who').onclick = async () => {
     const old = S.name, ob = mine(); await askName();
     if (old && key(old) !== key(S.name)) { delete S.people[key(old)]; try { await api.put(gid, 'people/' + key(old), null); } catch {} }
     save(ob);
   };
-  wire();
   try { const g = await api.get(gid); S.people = norm(g); S.title = g.title || ''; } catch { toast("Couldn't load this group."); }
-  remember(gid, S.title); render(); $('#scroll').scrollTop = HR * 7;
+  remember(gid, S.title); render(); $('#scroll').scrollTop = S.hr * 7;
   if (!S.name) await askName();
   if (!S.people[key(S.name)]) save([]);
   setInterval(sync, 4000); setInterval(() => !S.drag && render(), 60000);

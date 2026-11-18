@@ -305,10 +305,13 @@ function side(best, names) {
     const statuses = matches.map((available, i) => `<span class="filter-status ${available ? 'yes' : 'no'}" title="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}">${available ? '✓' : '×'} ${i + 1}</span>`).join('');
     return `<div class="${S.filters.length ? 'filter-person' : ''}"><div class="filter-person-head">${marker}${esc(p.name)}${me ? ' <small>(you)</small>' : ''}${S.filters.length ? `<span class="filter-count">${count}/${S.filters.length}</span>` : ''}</div>${S.filters.length ? `<div class="filter-statuses">${statuses}</div>` : ''}</div>`;
   }).join('');
+  const bestSection = best.max < 2
+    ? '<h3>Best overlap</h3><p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
+    : best.max === total ? ''
+      : '<h3>Best overlap</h3>' + `<p class="muted">${best.max} of ${total} people free</p>` + future.map(x =>
+        `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b><br><small>${x.who.map(esc).join(', ')}</small></div>`).join('');
   $('#side').innerHTML = '<h3>Everyone free</h3>' + (everyone || '<p class="muted">No times found when everyone is free.</p>')
-    + '<h3>Best overlap</h3>' + (best.max < 2 ? '<p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
-    : `<p class="muted">${best.max === total ? 'Everyone is free' : best.max + ' of ' + total + ' people free'}</p>` + future.map((x, i) =>
-      `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b>${best.max < total ? `<br><small>${x.who.map(esc).join(', ')}</small>` : ''}</div>`).join(''))
+    + bestSection
     + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><input id="slotStart" type="time" aria-label="Start time" value="18:00" required><input id="slotEnd" type="time" aria-label="End time" value="19:00" required><button class="btn" type="submit">Add time filter</button></form>'
     + `<div class="filter-chips">${chips}</div><h3>People</h3>` + (people || '<p class="muted">Nobody yet.</p>')
     + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';

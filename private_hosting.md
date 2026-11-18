@@ -10,7 +10,7 @@ Site: `https://<user>.github.io/<repo>/`.
 ## Turn on syncing (one-time)
 
 GitHub Pages can't store data, so availability lives in your own free Firebase
-Realtime Database. Nothing is stored on GitHub.
+Realtime Database. Nothing is stored on GitHub (or anywhere else).
 
 1. Go to console.firebase.google.com and sign in with a Google account.
 2. Click **Create a project** (or **Add project**), name it, turn off Google

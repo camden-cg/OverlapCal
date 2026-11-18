@@ -24,7 +24,7 @@ header{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1p
 main{flex:1;display:flex;min-height:0}
 #scroll{flex:1;overflow-y:auto;min-width:0}
 .row,#body{display:grid;grid-template-columns:56px repeat(var(--n),1fr)}
-#head{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+#head{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);user-select:none;-webkit-user-select:none}
 .dh{text-align:center;padding:6px 0;border-left:1px solid var(--line)}
 .dh small{display:block;font-size:11px;letter-spacing:.6px}
 .dh b{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:22px;font-weight:400}
@@ -433,12 +433,15 @@ function wire() {
         S.pinchStart = {distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y), hr: S.hr, y: (points[0].y + points[1].y) / 2};
       } else {
         const time = timeAt(e), block = e.target.closest('.ev.me') || mine().find(b => b.s <= time && time < b.e);
-        S.editCandidate = block ? +(block.dataset ? block.dataset.s : block.s) : null;
+        if (block) {
+          S.editCandidate = +(block.dataset ? block.dataset.s : block.s);
+          e.preventDefault(); body.setPointerCapture(e.pointerId);
+        } else S.editCandidate = null;
       }
       return;
     }
     const time = timeAt(e), block = e.target.closest('.ev.me') || mine().find(b => b.s <= time && time < b.e);
-    if (block) { S.editCandidate = +(block.dataset ? block.dataset.s : block.s); return; }
+    if (block) { S.editCandidate = +(block.dataset ? block.dataset.s : block.s); e.preventDefault(); body.setPointerCapture(e.pointerId); return; }
     S.editCandidate = null;
     S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();
   };
@@ -465,7 +468,12 @@ function wire() {
         return;
       }
     }
-    if (S.editCandidate !== null) { setTimeout(() => { S.editCandidate = null; }, 0); return; }
+    if (S.editCandidate !== null) {
+      const start = S.editCandidate; S.editCandidate = null;
+      const current = mine().find(b => b.s === start);
+      if (current) editBlock(current.s, current.e);
+      e.preventDefault(); return;
+    }
     if (typeof S.view !== 'number') return;
     if (e.target.closest('.ev.me')) return;
     if (e.target.closest('.x') || inGutter(e)) return;
@@ -487,13 +495,6 @@ function wire() {
   body.onclick = e => {
     const x = e.target.closest('.x');
     if (x) { save(mine().filter(b => b.s !== +x.dataset.s)); return; }
-    const block = e.target.closest('.ev.me');
-    const start = block ? +block.dataset.s : S.editCandidate;
-    S.editCandidate = null;
-    if (start !== null) {
-      const current = mine().find(b => b.s === start);
-      if (current) editBlock(current.s, current.e);
-    }
   };
   body.onkeydown = e => {
     if (e.target.closest('.x')) return;

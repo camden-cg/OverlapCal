@@ -35,7 +35,7 @@ main{flex:1;display:flex;min-height:0}
 .ev{position:absolute;border-radius:8px;padding:3px 6px;overflow:hidden;font-size:12px;line-height:1.25;pointer-events:none;z-index:1;
   background:color-mix(in srgb,var(--c) 24%,var(--bg));color:var(--fg);border-left:4px solid var(--c);box-shadow:0 0 0 1px var(--bg)}
 .ev b{display:block}
-.ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35)}
+.ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35);pointer-events:auto;cursor:pointer}
 .ev.ghost{opacity:.8;outline:2px dashed var(--c);z-index:2}
 .x{position:absolute;top:2px;right:2px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.15);cursor:pointer;pointer-events:auto;display:none;line-height:1;font-size:13px;padding:0}
 .ev.me:hover .x{display:block}
@@ -69,6 +69,11 @@ aside h3:first-child{margin-top:0}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20}
 .card{background:var(--bg);border-radius:16px;padding:24px;width:min(380px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.3)}
 .card h2{margin:0 0 4px}
+.edit-field{display:block;margin:12px 0}
+.edit-field input{display:block;width:100%;margin-top:4px}
+.modal-actions,.modal-buttons{display:flex;align-items:center;gap:8px}
+.modal-actions{justify-content:space-between;margin-top:18px}
+.modal-buttons{justify-content:flex-end}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
 #toast.on{opacity:1}
 .land{max-width:420px;margin:10vh auto;padding:0 20px;display:flex;flex-direction:column;gap:12px}
@@ -130,6 +135,7 @@ const fmtD = t => new Date(t).toLocaleDateString([], {weekday: 'short', month: '
 const addDays = (t, n) => { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); };
 const startOfDay = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const inputDate = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const inputDateTime = t => { const d = new Date(t); return `${inputDate(t)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const slotTime = (date, time) => { const [y, m, d] = date.split('-').map(Number), [h, min] = time.split(':').map(Number); return new Date(y, m - 1, d, h, min).getTime(); };
 const merge = bs => { const o = []; for (const b of [...bs].sort((a, c) => a.s - c.s)) { const l = o[o.length - 1]; l && b.s <= l.e ? l.e = Math.max(l.e, b.e) : o.push({s: b.s, e: b.e}); } return o; };
 const toast = m => { const t = $('#toast'); t.textContent = m; t.className = 'on'; clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 2200); };
@@ -282,7 +288,7 @@ function render() {
     names.forEach((k, i) => S.people[k].blocks.forEach(b => {
       if (b.s >= de || b.e <= ds) return;
       const p = S.people[k], me = k === key(S.name), s = Math.max(b.s, ds), e = Math.min(b.e, de);
-      h += `<div class="ev${me ? ' me' : ''}" style="${pos(b.s, b.e)};left:calc(${i} * 100% / ${n} + 1px);width:calc(100% / ${n} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
+      h += `<div class="ev${me ? ' me' : ''}"${me ? ` role="group" tabindex="0" data-s="${b.s}" data-e="${b.e}" aria-label="Availability ${fmtD(b.s)} ${fmtT(b.s)} to ${fmtD(b.e)} ${fmtT(b.e)}. Press Enter to edit."` : ''} style="${pos(b.s, b.e)};left:calc(${i} * 100% / ${n} + 1px);width:calc(100% / ${n} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
     }));
     if (ds === today) h += `<div class="now" style="top:${(Date.now() - ds) / HOUR * hr}px"></div>`;
     return `<div class="col">${h}</div>`;
@@ -340,6 +346,34 @@ function side(best, names) {
   });
 }
 
+function editBlock(start, end) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `<form class="card" id="editAvailability">
+    <h2>Edit availability</h2>
+    <label class="edit-field">Starts<input id="editStart" type="datetime-local" value="${inputDateTime(start)}" required></label>
+    <label class="edit-field">Ends<input id="editEnd" type="datetime-local" value="${inputDateTime(end)}" required></label>
+    <div class="modal-actions"><button class="btn" id="removeAvailability" type="button">Remove</button><span class="modal-buttons"><button class="btn" id="cancelEdit" type="button">Cancel</button><button class="btn primary" type="submit">Save</button></span></div>
+  </form>`;
+  document.body.append(modal);
+  const form = modal.querySelector('#editAvailability');
+  form.onsubmit = event => {
+    event.preventDefault();
+    const s = new Date($('#editStart').value).getTime(), end = new Date($('#editEnd').value).getTime();
+    if (!Number.isFinite(s) || !Number.isFinite(end) || end <= s) { toast('End time must be after start time.'); return; }
+    modal.remove();
+    save(merge([...mine().filter(b => b.s !== start), {s, e: end}]));
+  };
+  modal.querySelector('#removeAvailability').onclick = () => {
+    if (!confirm('Remove this availability?')) return;
+    modal.remove(); save(mine().filter(b => b.s !== start));
+  };
+  modal.querySelector('#cancelEdit').onclick = () => modal.remove();
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.onkeydown = e => { if (e.key === 'Escape') modal.remove(); };
+  modal.querySelector('#editStart').focus();
+}
+
 function zoomAt(value, clientY) {
   if (typeof S.view !== 'number') return;
   const body = $('#body'), scroll = $('#scroll');
@@ -386,15 +420,15 @@ function wire() {
   body.onpointerdown = e => {
     if (e.pointerType === 'touch') {
       S.touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY});
-      body.setPointerCapture(e.pointerId);
       if (S.touchPoints.size === 2 && typeof S.view === 'number') {
         const points = [...S.touchPoints.values()];
+        S.touchPoints.forEach((point, id) => body.setPointerCapture(id));
         S.pinching = true; S.drag = null; ghost();
         S.pinchStart = {distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y), hr: S.hr, y: (points[0].y + points[1].y) / 2};
       }
       return;
     }
-    if (typeof S.view !== 'number' || e.target.closest('.x') || inGutter(e)) return;
+    if (typeof S.view !== 'number' || e.target.closest('.ev.me') || inGutter(e)) return;
     S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();
   };
   body.onpointermove = e => {
@@ -421,6 +455,7 @@ function wire() {
       }
     }
     if (typeof S.view !== 'number') return;
+    if (e.target.closest('.ev.me')) return;
     if (e.target.closest('.x') || inGutter(e)) return;
     const c = cellAt(e);
     if (e.pointerType === 'touch') {
@@ -436,7 +471,17 @@ function wire() {
     }
     S.drag = null; ghost();
   };
-  body.onclick = e => { const x = e.target.closest('.x'); if (x) save(mine().filter(b => b.s !== +x.dataset.s)); };
+  body.onclick = e => {
+    const x = e.target.closest('.x');
+    if (x) { save(mine().filter(b => b.s !== +x.dataset.s)); return; }
+    const block = e.target.closest('.ev.me');
+    if (block) editBlock(+block.dataset.s, +block.dataset.e);
+  };
+  body.onkeydown = e => {
+    if (e.target.closest('.x')) return;
+    const block = e.target.closest('.ev.me');
+    if (block && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); editBlock(+block.dataset.s, +block.dataset.e); }
+  };
   document.onkeydown = e => { if (e.key === 'Escape') { S.drag = null; ghost(); } };
 }
 

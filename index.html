@@ -61,9 +61,8 @@ aside h3:first-child{margin-top:0}
 </head>
 <body>
 <script>
-// Paste your Firebase Realtime Database URL here to sync between people (see README).
-// Leave empty for demo mode, where data only stays in this browser.
-const DB = "";
+
+const DB = "https://overlapcal-default-rtdb.firebaseio.com/";
 
 const HR = 48, GUT = 56, HOUR = 36e5, $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

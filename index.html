@@ -238,14 +238,38 @@ function wire() {
   addEventListener('keydown', e => { if (e.key === 'Escape') { S.drag = null; ghost(); } });
 }
 
-function askName() {
+
+async function askName() {
   return new Promise(res => {
-    const m = document.createElement('div'); m.className = 'modal';
-    m.innerHTML = `<div class="card"><h2>What's your name?</h2><p class="muted">Others in this group see it next to your free times.</p>
-      <input id="nm" maxlength="24" style="width:100%" value="${esc(S.name)}"><p><button class="btn primary" id="ok">Continue</button></p></div>`;
+    const m = document.createElement('div');
+    m.className = 'modal';
+    m.innerHTML = `
+      <div class="card">
+        <h2>What's your name?</h2>
+        <p class="muted">Others in this group see it next to your free times.</p>
+        <input id="nm" maxlength="24" style="width:100%" placeholder="Enter your name">
+        <p><button class="btn primary" id="ok">Continue</button></p>
+      </div>
+    `;
     document.body.append(m);
-    const go = () => { const v = $('#nm').value.trim(); if (!v) return; S.name = v; localStorage.setItem('hf-name:' + gid, v); m.remove(); res(); };
-    $('#ok').onclick = go; $('#nm').onkeydown = e => e.key === 'Enter' && go(); $('#nm').focus();
+    const input = m.querySelector('#nm');
+    const button = m.querySelector('#ok');
+    const go = () => {
+      const v = input.value.trim();
+      if (!v) {
+        input.focus();
+        return;
+      }
+      S.name = v;
+      localStorage.setItem('hf-name:' + gid, v);
+      m.remove();
+      res();
+    };
+    button.addEventListener('click', go);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') go();
+    });
+    input.focus();
   });
 }
 

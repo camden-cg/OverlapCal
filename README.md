@@ -1,35 +1,24 @@
-# Hangout Time Finder
+# Hangout Finder
 
-A small Tkinter app for comparing date-specific availability and finding when
-everyone can meet.
+A single-page website. Create a group and share the link so everyone can easily upload their availability.
 
-## Requirements
+Site: `https://camden-cg.github.io/OverlapCal/`.
 
-- Python 3.10 or newer
-- Tkinter, which is included with most Python installations
+## Use
 
-The app uses only Python's standard library; no packages need to be installed.
+- Open the site and click **Create group link**. Each group gets its own
+  link, like `.../#/g/k3x9...`. Send different links to different groups.
+- Mouse: drag across the calendar, including across days, to add free time.
+  A plain click adds one hour. Hover a block and click x to remove it.
+- Phone: tap a start time, then tap an end time.
+- Green areas and the **Best times** list show when the most people overlap.
 
-## Run on macOS
+## Privacy
 
-Double-click **Hangout Time Finder.app** in Finder. It finds an installed
-Python 3 with Tkinter and opens the app without using Terminal.
+Each group has a unique link that acts as its access key. Anyone with the link can view and edit that group's availability. Groups cannot access each other's data through the website.
 
-## Run from a terminal
+Data submitted to the website is stored in a Firebase Realtime Database managed by the site owner. The site does not require accounts or collect email addresses. However, participant display names, group names, and availability are stored and are accessible to the site owner.
 
-From this folder, run:
+**Do not** share group links publicly or enter sensitive personal information.
 
-```bash
-python3 hangout_finder.py
-```
-
-Choose Day, 3 days, Week, Month, or Year from the view menu. In Day, 3-day,
-and Week views, drag across 30-minute time slots. In Month and Year views,
-drag across dates to select a day range. After releasing, enter a name and
-adjust either date and time before saving. Dates can be typed or selected
-from the date picker.
-
-Choose Morning, Afternoon, Evening, or Night for either endpoint, or type a
-time such as `8pm`, `noon`, or `20:30`. Use the same name to add more ranges
-for that person. The people list shows their full ranges, and the shared
-report updates as ranges are added.
+If you prefer to host your own database, you can set one up using the instructions in private_hosting.md.

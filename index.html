@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hangout Finder</title>
+<style>
+:root{--bg:#fff;--fg:#202124;--muted:#5f6368;--line:#dadce0;--accent:#1a73e8;--onaccent:#fff;--panel:#f1f3f4;--hr:48px;
+  --evs:75%;--evl:86%;--evfg:22%;--evbar:45%;--best:rgba(52,168,83,.16)}
+@media(prefers-color-scheme:dark){:root{--bg:#202124;--fg:#e8eaed;--muted:#9aa0a6;--line:#3c4043;--accent:#8ab4f8;--onaccent:#202124;--panel:#303134;
+  --evs:35%;--evl:28%;--evfg:90%;--evbar:60%;--best:rgba(52,168,83,.25)}}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px/1.4 "Google Sans",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+button,select,input{font:inherit;color:inherit}
+input,select{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--bg)}
+.muted,small{color:var(--muted)}
+.btn{border:1px solid var(--line);background:none;border-radius:999px;padding:7px 16px;cursor:pointer}
+.btn:hover,.ib:hover{background:var(--panel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+.ib{width:36px;height:36px;border-radius:50%;border:0;background:none;cursor:pointer;font-size:22px;line-height:1}
+header{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font-size:20px;margin-right:8px}
+main{flex:1;display:flex;min-height:0}
+#scroll{flex:1;overflow-y:auto;min-width:0}
+.row,#body{display:grid;grid-template-columns:56px repeat(var(--n),1fr)}
+#head{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.dh{text-align:center;padding:6px 0;border-left:1px solid var(--line)}
+.dh small{display:block;font-size:11px;letter-spacing:.6px}
+.dh b{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:22px;font-weight:400}
+.dh.today b{background:var(--accent);color:var(--onaccent)}
+#body{height:calc(24*var(--hr));user-select:none;-webkit-user-select:none;touch-action:pan-y;cursor:crosshair}
+.gut{position:relative}
+.gut span{position:absolute;right:8px;transform:translateY(-50%);font-size:10px;color:var(--muted)}
+.col{position:relative;border-left:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% var(--hr)}
+.ev{position:absolute;border-radius:8px;padding:3px 6px;overflow:hidden;font-size:12px;line-height:1.25;pointer-events:none;z-index:1;
+  background:hsl(var(--c) var(--evs) var(--evl));color:hsl(var(--c) 60% var(--evfg));border-left:4px solid hsl(var(--c) 65% var(--evbar));box-shadow:0 0 0 1px var(--bg)}
+.ev b{display:block}
+.ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35)}
+.ev.ghost{opacity:.8;outline:2px dashed hsl(var(--c) 65% var(--evbar));z-index:2}
+.x{position:absolute;top:2px;right:2px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.15);cursor:pointer;pointer-events:auto;display:none;line-height:1;font-size:13px;padding:0}
+.ev.me:hover .x{display:block}
+@media(hover:none){.ev.me .x{display:block}}
+.best{position:absolute;left:0;right:0;border-radius:8px;background:var(--best);outline:2px dashed #34a853;outline-offset:-2px;pointer-events:none}
+.now{position:absolute;left:0;right:0;height:2px;background:#ea4335;pointer-events:none;z-index:3}
+.now::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:#ea4335}
+aside{width:290px;border-left:1px solid var(--line);padding:16px;overflow:auto}
+aside h3{margin:16px 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+aside h3:first-child{margin-top:0}
+.item{padding:8px 12px;margin-bottom:6px;border-radius:12px;background:var(--panel);cursor:pointer}
+.item:hover{outline:2px solid var(--accent)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20}
+.card{background:var(--bg);border-radius:16px;padding:24px;width:min(380px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.card h2{margin:0 0 4px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+#toast.on{opacity:1}
+.land{max-width:420px;margin:10vh auto;padding:0 20px;display:flex;flex-direction:column;gap:12px}
+.land a{color:var(--accent);text-decoration:none;padding:6px 0}
+@media(max-width:800px){main{flex-direction:column}aside{width:auto;border-left:0;border-top:1px solid var(--line);max-height:38%}}
+</style>
+</head>
+<body>
+<script>
+
+
+  
+\\THIS IS WHAT YOU ARE REPLACING WITH THE FIREBASE LINK YOU JUST COPIED
+
+const DB = "https://overlapcal-default-rtdb.firebaseio.com/";
+
+
+  
+const HR = 48, GUT = 56, HOUR = 36e5, $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hue = n => [...n.toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+const key = n => n.trim().toLowerCase().replace(/[.$#\[\]\/]/g, '_');
+const fmtT = t => new Date(t).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+const fmtD = t => new Date(t).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
+const addDays = (t, n) => { const d = new Date(t); d.setDate(d.getDate() + n); return d.getTime(); };
+const startOfDay = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const merge = bs => { const o = []; for (const b of [...bs].sort((a, c) => a.s - c.s)) { const l = o[o.length - 1]; l && b.s <= l.e ? l.e = Math.max(l.e, b.e) : o.push({s: b.s, e: b.e}); } return o; };
+const toast = m => { const t = $('#toast'); t.textContent = m; t.className = 'on'; clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 2200); };
+
+// ---- storage: Firebase Realtime Database over plain fetch, or localStorage in demo mode ----
+const api = {
+  async get(id) {
+    if (!DB) return JSON.parse(localStorage.getItem('hf:' + id) || '{}');
+    const r = await fetch(`${DB}/groups/${id}.json`); if (!r.ok) throw Error(r.status);
+    return (await r.json()) || {};
+  },
+  async put(id, path, val) {
+    if (!DB) {
+      const g = JSON.parse(localStorage.getItem('hf:' + id) || '{}'), [a, b] = path.split('/');
+      if (b) { g[a] = g[a] || {}; val == null ? delete g[a][b] : g[a][b] = val; } else val == null ? delete g[a] : g[a] = val;
+      return localStorage.setItem('hf:' + id, JSON.stringify(g));
+    }
+    const p = path.split('/').map(encodeURIComponent).join('/');
+    const r = await fetch(`${DB}/groups/${id}/${p}.json`, {method: val == null ? 'DELETE' : 'PUT', body: JSON.stringify(val)});
+    if (!r.ok) throw Error(r.status);
+  }
+};
+
+const gid = (location.hash.match(/^#\/g\/([\w-]{10,30})$/) || [])[1];
+addEventListener('hashchange', () => location.reload());
+
+// ---- landing page: create a new group ----
+function landing() {
+  const groups = JSON.parse(localStorage.getItem('hf-groups') || '[]');
+  document.body.innerHTML = `<div class="land"><h1 style="margin:0">Hangout Finder</h1>
+    <p class="muted">Make a group, send the link, and everyone adds when they're free. The best overlap shows up automatically.</p>
+    <input id="t" placeholder="Group name (e.g. Friday dinner)" maxlength="60">
+    <button class="btn primary" id="go">Create group link</button>
+    ${groups.length ? '<h3>Your groups</h3>' + groups.map(g => `<a href="#/g/${g.id}">${esc(g.title || 'Untitled group')}</a>`).join('') : ''}
+    ${DB ? '' : '<p class="muted"><small>Demo mode: data stays in this browser. Set DB in index.html to sync between people.</small></p>'}</div><div id="toast"></div>`;
+  $('#go').onclick = async () => {
+    const id = [...crypto.getRandomValues(new Uint8Array(16))].map(b => (b % 36).toString(36)).join(''), title = $('#t').value.trim();
+    try { await api.put(id, 'title', title || null); } catch { return toast('Could not create group. Check your connection.'); }
+    remember(id, title); location.hash = '#/g/' + id;
+  };
+}
+function remember(id, title) {
+  const l = JSON.parse(localStorage.getItem('hf-groups') || '[]').filter(g => g.id !== id);
+  localStorage.setItem('hf-groups', JSON.stringify([{id, title}, ...l].slice(0, 30)));
+}
+
+// ---- group page ----
+const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0};
+const mine = () => (S.people[key(S.name)] || {}).blocks || [];
+const days = () => { const s = S.view === 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: S.view}, (_, i) => addDays(s, i)); };
+const norm = g => Object.fromEntries(Object.entries(g.people || {}).map(([k, v]) => [k, {name: v.name || k,
+  blocks: merge(Object.values(v.blocks || {}).filter(b => b && b.e > b.s))}]));
+
+function bestAll() {
+  const P = Object.values(S.people).filter(p => p.blocks.length);
+  const pts = [...new Set(P.flatMap(p => p.blocks.flatMap(b => [b.s, b.e])))].sort((a, b) => a - b), segs = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], z = pts[i + 1], who = P.filter(p => p.blocks.some(x => x.s <= a && x.e >= z)).map(p => p.name).sort();
+    if (who.length >= 2) segs.push({s: a, e: z, who});
+  }
+  const max = Math.max(0, ...segs.map(s => s.who.length)), list = [];
+  for (const s of segs.filter(s => s.who.length === max)) {
+    const l = list[list.length - 1];
+    l && l.e === s.s && l.who.join() === s.who.join() ? l.e = s.e : list.push({...s});
+  }
+  return {max, list};
+}
+
+async function save(blocks) {
+  const k = key(S.name); S.people[k] = {name: S.name, blocks}; S.pending++;
+  try { await api.put(gid, 'people/' + k, {name: S.name, blocks}); } catch { toast("Couldn't save. Check your connection."); }
+  S.pending--; render();
+}
+
+function render() {
+  const D = days(), today = startOfDay(Date.now()), names = Object.keys(S.people).sort(), n = Math.max(names.length, 1), best = bestAll();
+  $('#scroll').style.setProperty('--n', S.view);
+  $('#ttl').textContent = S.title; document.title = (S.title ? S.title + ' · ' : '') + 'Hangout Finder';
+  $('#who').textContent = S.name || 'Set name'; $('#view').value = S.view;
+  const a = new Date(D[0]), z = new Date(D[D.length - 1]), mo = d => d.toLocaleDateString([], {month: 'short'});
+  $('#range').textContent = a.getMonth() === z.getMonth() ? `${mo(a)} ${a.getDate()}${D.length < 2 ? '' : ' – ' + z.getDate()}, ${z.getFullYear()}` : `${mo(a)} ${a.getDate()} – ${mo(z)} ${z.getDate()}, ${z.getFullYear()}`;
+  $('#head').innerHTML = '<div></div>' + D.map(ds => `<div class="dh${ds === today ? ' today' : ''}"><small>${new Date(ds).toLocaleDateString([], {weekday: 'short'}).toUpperCase()}</small><b>${new Date(ds).getDate()}</b></div>`).join('');
+  const hours = Array.from({length: 23}, (_, i) => `<span style="top:${(i + 1) * HR}px">${new Date(2000, 0, 1, i + 1).toLocaleTimeString([], {hour: 'numeric'})}</span>`).join('');
+  $('#body').innerHTML = `<div class="gut">${hours}</div>` + D.map(ds => {
+    const de = addDays(ds, 1); let h = '';
+    const pos = (s, e) => { const p = Math.max(s, ds), q = Math.min(e, de); return `top:${(p - ds) / HOUR * HR}px;height:${Math.max((q - p) / HOUR * HR, 16)}px`; };
+    best.list.forEach(x => { if (x.s < de && x.e > ds) h += `<div class="best" style="${pos(x.s, x.e)}"></div>`; });
+    names.forEach((k, i) => S.people[k].blocks.forEach(b => {
+      if (b.s >= de || b.e <= ds) return;
+      const p = S.people[k], me = k === key(S.name), s = Math.max(b.s, ds), e = Math.min(b.e, de);
+      h += `<div class="ev${me ? ' me' : ''}" style="${pos(b.s, b.e)};left:calc(${i} * 100% / ${n} + 1px);width:calc(100% / ${n} - 3px);--c:${hue(p.name)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
+    }));
+    if (ds === today) h += `<div class="now" style="top:${(Date.now() - ds) / HOUR * HR}px"></div>`;
+    return `<div class="col">${h}</div>`;
+  }).join('');
+  side(best, names); ghost();
+}
+
+function side(best, names) {
+  const total = names.length, future = best.list.filter(x => x.e > Date.now()).slice(0, 8);
+  $('#side').innerHTML = '<h3>Best times</h3>' + (best.max < 2 ? '<p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'
+    : `<p class="muted">${best.max === total ? 'Everyone is free' : best.max + ' of ' + total + ' people free'}</p>` + future.map((x, i) =>
+      `<div class="item" data-i="${i}"><b>${fmtD(x.s)}</b> · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}${best.max < total ? `<br><small>${x.who.map(esc).join(', ')}</small>` : ''}</div>`).join(''))
+    + '<h3>People</h3>' + (names.map(k => `<div style="padding:3px 0"><i class="dot" style="background:hsl(${hue(S.people[k].name)} 65% 50%)"></i>${esc(S.people[k].name)}${k === key(S.name) ? ' <small>(you)</small>' : ''}</div>`).join('') || '<p class="muted">Nobody yet.</p>')
+    + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';
+  $('#clear').onclick = () => mine().length && confirm('Remove all your free times?') && save([]);
+  document.querySelectorAll('.item').forEach(el => el.onclick = () => {
+    const x = future[+el.dataset.i]; S.anchor = startOfDay(x.s); render();
+    $('#scroll').scrollTop = Math.max(0, (x.s - startOfDay(x.s)) / HOUR - 1) * HR;
+  });
+}
+
+// ---- drag to select (mouse) / tap start then tap end (touch) ----
+const rng = d => {
+  const tmin = Math.min(d.a.m, d.b.m); let tmax = Math.max(d.a.m, d.b.m) + 30;
+  if (!(d.tap || d.moved) && d.a.d === d.b.d && d.a.m === d.b.m) tmax = tmin + 60;  // plain click = 1 hour
+  return {d0: Math.min(d.a.d, d.b.d), d1: Math.max(d.a.d, d.b.d), tmin, tmax: Math.min(tmax, 1440)};
+};
+function cellAt(e) {
+  const r = $('#body').getBoundingClientRect(), w = (r.width - GUT) / S.view;
+  return {d: Math.min(Math.max(Math.floor((e.clientX - r.left - GUT) / w), 0), S.view - 1),
+          m: Math.min(Math.max(Math.floor((e.clientY - r.top) / HR * 2) * 30, 0), 1410)};
+}
+function ghost() {
+  document.querySelectorAll('.ghost').forEach(g => g.remove());
+  if (!S.drag) return;
+  const r = rng(S.drag), cols = document.querySelectorAll('.col'), t = m => fmtT(new Date(2000, 0, 1, 0, m));
+  for (let i = r.d0; i <= r.d1; i++) {
+    const el = document.createElement('div'); el.className = 'ev ghost';
+    el.style.cssText = `top:${r.tmin / 60 * HR}px;height:${(r.tmax - r.tmin) / 60 * HR}px;left:1px;right:2px;--c:${hue(S.name)}`;
+    el.innerHTML = `<b>${esc(S.name)}</b>${t(r.tmin)} – ${t(r.tmax)}`; cols[i].append(el);
+  }
+}
+function commit(d) {
+  S.drag = null; const r = rng(d), D = days(), add = [];
+  for (let i = r.d0; i <= r.d1; i++) add.push({s: D[i] + r.tmin * 6e4, e: D[i] + r.tmax * 6e4});
+  save(merge([...mine(), ...add]));
+}
+function wire() {
+  const body = $('#body'), inGutter = e => e.clientX - body.getBoundingClientRect().left < GUT;
+  body.onpointerdown = e => {
+    if (e.target.closest('.x') || inGutter(e) || e.pointerType === 'touch') return;
+    S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();
+  };
+  body.onpointermove = e => {
+    if (!S.drag || S.drag.tap) return;
+    const b = cellAt(e); S.drag.moved = S.drag.moved || b.d !== S.drag.a.d || b.m !== S.drag.a.m; S.drag.b = b; ghost();
+  };
+  body.onpointerup = e => {
+    if (e.target.closest('.x') || inGutter(e)) return;
+    const c = cellAt(e);
+    if (e.pointerType === 'touch') {
+      if (S.drag && S.drag.tap) { S.drag.b = c; commit(S.drag); }
+      else { S.drag = {a: c, b: c, tap: true}; ghost(); toast('Now tap the end time'); }
+    } else if (S.drag) { S.drag.b = c; commit(S.drag); }
+  };
+  body.onpointercancel = () => { S.drag = null; ghost(); };
+  body.onclick = e => { const x = e.target.closest('.x'); if (x) save(mine().filter(b => b.s !== +x.dataset.s)); };
+  addEventListener('keydown', e => { if (e.key === 'Escape') { S.drag = null; ghost(); } });
+}
+
+function askName() {
+  return new Promise(res => {
+    const m = document.createElement('div'); m.className = 'modal';
+    m.innerHTML = `<div class="card"><h2>What's your name?</h2><p class="muted">Others in this group see it next to your free times.</p>
+      <input id="nm" maxlength="24" style="width:100%" value="${esc(S.name)}"><p><button class="btn primary" id="ok">Continue</button></p></div>`;
+    document.body.append(m);
+    const go = () => { const v = $('#nm').value.trim(); if (!v) return; S.name = v; localStorage.setItem('hf-name:' + gid, v); m.remove(); res(); };
+    $('#ok').onclick = go; $('#nm').onkeydown = e => e.key === 'Enter' && go(); $('#nm').focus();
+  });
+}
+
+async function sync() {
+  if (S.pending || S.drag || document.hidden) return;
+  try {
+    const g = await api.get(gid), p = norm(g);
+    if (JSON.stringify(p) !== JSON.stringify(S.people) || (g.title || '') !== S.title) { S.people = p; S.title = g.title || ''; render(); }
+  } catch {}
+}
+
+async function group() {
+  document.body.innerHTML = `<header><b class="logo">Hangout Finder</b><span id="ttl" class="muted"></span><span style="flex:1"></span>
+    <button class="btn" id="today">Today</button><button class="ib" id="prev">‹</button><button class="ib" id="next">›</button><b id="range" style="min-width:150px"></b>
+    <select id="view"><option value="1">Day</option><option value="3">3 days</option><option value="7">Week</option></select>
+    <button class="btn" id="copy">Copy invite link</button><button class="btn" id="who"></button></header>
+    <main><div id="scroll"><div class="row" id="head"></div><div id="body"></div></div><aside id="side"></aside></main><div id="toast"></div>`;
+  S.name = localStorage.getItem('hf-name:' + gid) || '';
+  const step = d => { S.drag = null; S.anchor = addDays(S.anchor, d * S.view); render(); };
+  $('#prev').onclick = () => step(-1); $('#next').onclick = () => step(1);
+  $('#today').onclick = () => { S.anchor = startOfDay(Date.now()); render(); };
+  $('#view').onchange = e => { S.view = +e.target.value; S.drag = null; render(); };
+  $('#copy').onclick = () => navigator.clipboard.writeText(location.href).then(() => toast('Invite link copied'), () => prompt('Copy this link:', location.href));
+  $('#who').onclick = async () => {
+    const old = S.name, ob = mine(); await askName();
+    if (old && key(old) !== key(S.name)) { delete S.people[key(old)]; try { await api.put(gid, 'people/' + key(old), null); } catch {} }
+    save(ob);
+  };
+  wire();
+  try { const g = await api.get(gid); S.people = norm(g); S.title = g.title || ''; } catch { toast("Couldn't load this group."); }
+  remember(gid, S.title); render(); $('#scroll').scrollTop = HR * 7;
+  if (!S.name) await askName();
+  if (!S.people[key(S.name)]) save([]);
+  setInterval(sync, 4000); setInterval(() => !S.drag && render(), 60000);
+  document.addEventListener('visibilitychange', sync);
+}
+
+gid ? group() : landing();
+</script>
+</body>
+</html>

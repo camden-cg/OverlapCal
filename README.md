@@ -1,7 +1,6 @@
 # Hangout Finder
 
-A single-page website. Create a group, send the link, and everyone adds when
-they're free. No installs, no packages.
+A single-page website. Create a group, send the link, and everyone can easily upload their availability.
 
 Site: `https://camden-cg.github.io/OverlapCal/`.
 

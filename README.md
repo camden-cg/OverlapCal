@@ -3,7 +3,7 @@
 A single-page website. Create a group, send the link, and everyone adds when
 they're free. No installs, no packages.
 
-Site: `https://<user>.github.io/<repo>/`.
+Site: `https://camden-cg.github.io/OverlapCal/`.
 
 ## Turn on syncing (one-time, about 5 minutes)
 

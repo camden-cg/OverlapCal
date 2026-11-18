@@ -56,9 +56,6 @@ aside h3:first-child{margin-top:0}
 #toast.on{opacity:1}
 .land{max-width:420px;margin:10vh auto;padding:0 20px;display:flex;flex-direction:column;gap:12px}
 .land a{color:var(--accent);text-decoration:none;padding:6px 0}
-.zoom{display:flex;align-items:center;gap:2px}
-.zoom .ib{width:32px;height:32px;font-size:19px}
-.zoom-label{min-width:42px;text-align:center;font-size:12px;color:var(--muted)}
 .calendar-view{padding:18px;max-width:1100px;margin:0 auto}
 .month-grid{display:grid;grid-template-columns:repeat(7,minmax(34px,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .weekday,.month-day{border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center}
@@ -161,7 +158,7 @@ function remember(id, title) {
 }
 
 // ---- group page ----
-const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0, hr: HR};
+const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map()};
 const mine = () => (S.people[key(S.name)] || {}).blocks || [];
 const days = () => { const count = +S.view, s = count >= 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: count}, (_, i) => addDays(s, i)); };
 const monthStart = t => { const d = new Date(t); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -235,8 +232,6 @@ function render() {
   $('#ttl').textContent = S.title; document.title = (S.title ? S.title + ' · ' : '') + 'Hangout Finder';
   $('#who').textContent = S.name || 'Set name'; $('#view').value = S.view;
   $('#mycolor').value = colorOf(S.people[key(S.name)] || {});
-  $('#zoom').hidden = typeof S.view !== 'number';
-  $('#zoomlabel').textContent = `${Math.round(S.hr / HR * 100)}%`;
   if (S.view === 'year') {
     $('#range').textContent = new Date(S.anchor).getFullYear();
     renderYear(); side(best, names); return;
@@ -283,6 +278,18 @@ function side(best, names) {
   });
 }
 
+function zoomAt(value, clientY) {
+  if (typeof S.view !== 'number') return;
+  const body = $('#body'), scroll = $('#scroll');
+  if (!body) return;
+  const old = S.hr, next = Math.max(24, Math.min(96, value));
+  if (next === old) return;
+  const y = Math.max(0, Math.min(body.offsetHeight, clientY - body.getBoundingClientRect().top));
+  S.hr = next;
+  render();
+  scroll.scrollTop += y * (next / old - 1);
+}
+
 // ---- drag to select (mouse) / tap start then tap end (touch) ----
 const rng = d => {
   const D = days();
@@ -315,14 +322,42 @@ function commit(d) {
 function wire() {
   const body = $('#body'), inGutter = e => e.clientX - body.getBoundingClientRect().left < GUT;
   body.onpointerdown = e => {
-    if (typeof S.view !== 'number' || e.target.closest('.x') || inGutter(e) || e.pointerType === 'touch') return;
+    if (e.pointerType === 'touch') {
+      S.touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY});
+      body.setPointerCapture(e.pointerId);
+      if (S.touchPoints.size === 2 && typeof S.view === 'number') {
+        const points = [...S.touchPoints.values()];
+        S.pinching = true; S.drag = null; ghost();
+        S.pinchStart = {distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y), hr: S.hr, y: (points[0].y + points[1].y) / 2};
+      }
+      return;
+    }
+    if (typeof S.view !== 'number' || e.target.closest('.x') || inGutter(e)) return;
     S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();
   };
   body.onpointermove = e => {
+    if (e.pointerType === 'touch') {
+      if (!S.touchPoints.has(e.pointerId)) return;
+      S.touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY});
+      if (S.pinching && S.touchPoints.size === 2 && S.pinchStart) {
+        const points = [...S.touchPoints.values()];
+        const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+        zoomAt(S.pinchStart.hr * distance / S.pinchStart.distance, S.pinchStart.y);
+      }
+      return;
+    }
     if (!S.drag || S.drag.tap) return;
     const b = cellAt(e); S.drag.moved = S.drag.moved || b.d !== S.drag.a.d || b.m !== S.drag.a.m; S.drag.b = b; ghost();
   };
   body.onpointerup = e => {
+    if (e.pointerType === 'touch') {
+      const wasPinching = S.pinching;
+      S.touchPoints.delete(e.pointerId);
+      if (wasPinching) {
+        if (!S.touchPoints.size) { S.pinching = false; S.pinchStart = null; S.drag = null; ghost(); }
+        return;
+      }
+    }
     if (typeof S.view !== 'number') return;
     if (e.target.closest('.x') || inGutter(e)) return;
     const c = cellAt(e);
@@ -331,7 +366,14 @@ function wire() {
       else { S.drag = {a: c, b: c, tap: true}; ghost(); toast('Now tap the end time'); }
     } else if (S.drag) { S.drag.b = c; commit(S.drag); }
   };
-  body.onpointercancel = () => { S.drag = null; ghost(); };
+  body.onpointercancel = e => {
+    if (e.pointerType === 'touch') {
+      S.touchPoints.delete(e.pointerId);
+      if (!S.touchPoints.size) { S.pinching = false; S.pinchStart = null; }
+      return;
+    }
+    S.drag = null; ghost();
+  };
   body.onclick = e => { const x = e.target.closest('.x'); if (x) save(mine().filter(b => b.s !== +x.dataset.s)); };
   document.onkeydown = e => { if (e.key === 'Escape') { S.drag = null; ghost(); } };
 }
@@ -383,10 +425,9 @@ async function group() {
   document.body.innerHTML = `<header><b class="logo">Hangout Finder</b><span id="ttl" class="muted"></span><span style="flex:1"></span>
     <button class="btn" id="today">Today</button><button class="ib" id="prev">‹</button><button class="ib" id="next">›</button><b id="range" style="min-width:150px"></b>
     <select id="view"><option value="1">Day</option><option value="3">3 days</option><option value="7">Week</option><option value="14">2 weeks</option><option value="month">Month</option><option value="year">Year</option></select>
-    <span class="zoom" id="zoom"><button class="ib" id="zoomout" title="Zoom out" aria-label="Zoom out">−</button><span class="zoom-label" id="zoomlabel"></span><button class="ib" id="zoomin" title="Zoom in" aria-label="Zoom in">+</button><button class="ib" id="zoomreset" title="Reset zoom" aria-label="Reset zoom">↺</button></span>
     <input id="mycolor" type="color" title="Choose your color" aria-label="Choose your color" style="width:42px;height:36px;padding:3px">
     <button class="btn" id="copy">Copy invite link</button><button class="btn" id="who"></button></header>
-    <main><div id="scroll"><div class="row" id="head"></div><div id="body"></div></div><aside id="side"></aside></main><div id="toast"></div>`;
+    <main><div id="scroll" aria-label="Calendar: hold Control or Command while scrolling to zoom, or use a two-finger pinch"><div class="row" id="head"></div><div id="body"></div></div><aside id="side"></aside></main><div id="toast"></div>`;
   S.name = localStorage.getItem('hf-name:' + gid) || '';
   const step = d => {
     S.drag = null;
@@ -404,13 +445,11 @@ async function group() {
     if (S.view === 'year') { const d = new Date(S.anchor); d.setMonth(0, 1); S.anchor = startOfDay(d.getTime()); }
     S.drag = null; render();
   };
-  const zoom = delta => {
-    const scroll = $('#scroll'), ratio = S.hr / scroll.scrollTop;
-    S.hr = Math.max(24, Math.min(96, S.hr + delta));
-    render(); $('#scroll').scrollTop = Number.isFinite(ratio) ? S.hr / ratio : 0;
-  };
-  $('#zoomout').onclick = () => zoom(-8); $('#zoomin').onclick = () => zoom(8);
-  $('#zoomreset').onclick = () => { S.hr = HR; render(); };
+  $('#scroll').addEventListener('wheel', e => {
+    if ((!e.ctrlKey && !e.metaKey) || typeof S.view !== 'number') return;
+    e.preventDefault();
+    zoomAt(S.hr * Math.exp(-e.deltaY * .002), e.clientY);
+  }, {passive: false});
   $('#mycolor').onchange = e => {
     const chosen = e.target.value.toLowerCase(), duplicate = Object.entries(S.people).some(([k, p]) => k !== key(S.name) && colorOf(p).toLowerCase() === chosen);
     if (duplicate) { toast('That color is already used in this group.'); render(); return; }

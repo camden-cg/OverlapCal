@@ -18,7 +18,7 @@ that group. Groups can't see each other. **Don't post links publicly.**
 - Phone: tap a start time, then tap an end time.
 - Green areas and the **Best times** list show when the most people overlap.
 
-## SETUP: Turn on syncing 
+## Setup: Turn on syncing 
 
 GitHub Pages can't store data, so availability lives in your own free Firebase
 Realtime Database. Nothing is stored on GitHub. (This is a one-time setup stage, about 5 minutes)

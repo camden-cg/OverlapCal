@@ -1,13 +1,27 @@
 # Hangout Finder
 
-A single-page website. Create a group, send the link, and everyone can easily upload their availability.
+A single-page website. Create a group and share the link so everyone can easily upload their availability.
 
 Site: `https://camden-cg.github.io/OverlapCal/`.
 
-## Turn on syncing (one-time, about 5 minutes)
+## Privacy
+
+A group link is the only access control: anyone who has it can view and edit
+that group. Groups can't see each other. **Don't post links publicly.**
+
+## Use
+
+- Open the site and click **Create group link**. Each group gets its own
+  link, like `.../#/g/k3x9...`. Send different links to different groups.
+- Mouse: drag across the calendar, including across days, to add free time.
+  A plain click adds one hour. Hover a block and click x to remove it.
+- Phone: tap a start time, then tap an end time.
+- Green areas and the **Best times** list show when the most people overlap.
+
+## SETUP: Turn on syncing 
 
 GitHub Pages can't store data, so availability lives in your own free Firebase
-Realtime Database. Nothing is stored on GitHub.
+Realtime Database. Nothing is stored on GitHub. (This is a one-time setup stage, about 5 minutes)
 
 1. Go to console.firebase.google.com and sign in with a Google account.
 2. Click **Create a project** (or **Add project**), name it, turn off Google
@@ -43,17 +57,3 @@ To test, create a group on your site and open its link in a second browser or
 on your phone. Blocks you add should appear in both within a few seconds.
 
 Until `DB` is set, the site runs in demo mode (data stays in your browser).
-
-## Use
-
-- Open the site and click **Create group link**. Each group gets its own
-  link, like `.../#/g/k3x9...`. Send different links to different groups.
-- Mouse: drag across the calendar, including across days, to add free time.
-  A plain click adds one hour. Hover a block and click x to remove it.
-- Phone: tap a start time, then tap an end time.
-- Green areas and the **Best times** list show when the most people overlap.
-
-## Privacy
-
-A group link is the only access control: anyone who has it can view and edit
-that group. Groups can't see each other. Don't post links publicly.

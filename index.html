@@ -60,15 +60,13 @@ aside h3:first-child{margin-top:0}
 .filter-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:4px 7px;background:var(--panel);font-size:11px}
 .filter-chip button{border:0;background:none;cursor:pointer;padding:0 1px;font-size:15px;line-height:1}
 .filter-person{padding:7px 8px;margin:5px 0;border-radius:8px;background:var(--panel)}
-.filter-person-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.person-ident{display:flex;align-items:center;min-width:0}
-.person-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filter-person-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.person-ident{display:flex;align-items:center;gap:5px;min-width:0;flex:1}
+.person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .filter-count{font-size:11px;color:var(--muted)}
-.filter-statuses{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 0 20px}
-.filter-status{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--person-color) 55%,var(--line));border-radius:999px;padding:2px 6px 2px 2px;background:color-mix(in srgb,var(--person-color) 12%,var(--bg));font-size:10px;line-height:1}
-.filter-status-icon{display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--person-color);color:#fff;font-size:11px;font-weight:700}
-.filter-status.no{background:transparent}
-.filter-status.no .filter-status-icon{background:transparent;border:1px solid var(--person-color);color:var(--person-color)}
+.filter-statuses{display:flex;align-items:center;gap:3px;flex:0 1 auto;max-width:96px;overflow-x:auto}
+.filter-status{display:grid;place-items:center;flex:0 0 16px;width:16px;height:16px;border-radius:50%;background:var(--person-color);color:#fff;font-size:10px;font-weight:700;line-height:1}
+.filter-status.no{border:1px solid var(--person-color);background:transparent;color:var(--person-color)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20}
 .card{background:var(--bg);border-radius:16px;padding:24px;width:min(380px,90vw);box-shadow:0 8px 30px rgba(0,0,0,.3)}
 .card h2{margin:0 0 4px}
@@ -304,9 +302,9 @@ function side(best, names) {
   }).sort((a, b) => b.count - a.count || a.p.name.localeCompare(b.p.name));
   const people = ranked.map(({k, p, matches, count}) => {
     const me = k === key(S.name), marker = me ? `<input class="dot-picker" type="color" value="${colorOf(p)}" aria-label="Change your color" title="Change your color">`
-      : `<i class="dot" style="background:${colorOf(p)}"></i>`;
-    const statuses = matches.map((available, i) => `<span class="filter-status ${available ? 'yes' : 'no'}" style="--person-color:${colorOf(p)}" title="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}"><span class="filter-status-icon" aria-hidden="true">${available ? '✓' : '×'}</span><span>${i + 1}</span></span>`).join('');
-    return `<div class="${S.filters.length ? 'filter-person' : ''}"><div class="filter-person-head"><span class="person-ident">${marker}<span class="person-name">${esc(p.name)}${me ? ' <small>(you)</small>' : ''}</span></span>${S.filters.length ? `<span class="filter-count">${count}/${S.filters.length}</span>` : ''}</div>${S.filters.length ? `<div class="filter-statuses">${statuses}</div>` : ''}</div>`;
+      : S.filters.length ? '' : `<i class="dot" style="background:${colorOf(p)}"></i>`;
+    const statuses = matches.map((available, i) => `<span class="filter-status ${available ? 'yes' : 'no'}" style="--person-color:${colorOf(p)}" aria-label="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}" title="${available ? 'Available' : 'Unavailable'} for filter ${i + 1}">${available ? '✓' : '×'}</span>`).join('');
+    return `<div class="${S.filters.length ? 'filter-person' : ''}"><div class="filter-person-head"><span class="person-ident">${marker}${S.filters.length ? `<span class="filter-statuses">${statuses}</span>` : ''}<span class="person-name">${esc(p.name)}${me ? ' <small>(you)</small>' : ''}</span></span>${S.filters.length ? `<span class="filter-count">${count}/${S.filters.length}</span>` : ''}</div></div>`;
   }).join('');
   const bestSection = best.max < 2
     ? '<h3>Best overlap</h3><p class="muted">No overlap yet. Drag on the calendar to add your free times.</p>'

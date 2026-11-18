@@ -36,7 +36,7 @@ Realtime Database. Nothing is stored on GitHub (or anywhere else).
 6. Open the **Data** tab and copy the URL at the top. It looks like
    `https://your-project-default-rtdb.firebaseio.com` (some regions end in
    `.firebasedatabase.app`).
-7. In `index.html`, paste it between the quotes, with no trailing slash:
+7. In `index.html`, paste it in place of the default database (keep the ''):
    ```js
    const DB = "https://your-project-default-rtdb.firebaseio.com";
    ```

@@ -38,7 +38,7 @@ main{flex:1;display:flex;min-height:0}
 .ev b{display:block}
 .ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35);pointer-events:auto;cursor:pointer}
 .ev.me.selected{outline:2px solid var(--accent);outline-offset:1px}
-.ev.me::before,.ev.me::after{content:"";position:absolute;left:25%;right:25%;height:9px;cursor:ns-resize;z-index:2}
+.ev.me::before,.ev.me::after{content:"";position:absolute;left:0;right:0;height:7px;border-radius:999px;cursor:ns-resize;z-index:2}
 .ev.me::before{top:0}
 .ev.me::after{bottom:0}
 .ev.me:hover::before,.ev.me:hover::after{background:var(--c);opacity:.65}
@@ -233,6 +233,26 @@ function calendarDots(start, end) {
   const people = Object.values(S.people).filter(p => availableOn(p, start, end));
   return `<span class="availability-dots">${people.map(p => `<i title="${esc(p.name)}" style="background:${colorOf(p)}"></i>`).join('')}</span>`;
 }
+function layoutEvents(events) {
+  events.sort((a, b) => a.s - b.s || a.e - b.e || a.k.localeCompare(b.k));
+  const laneEnds = [], lanes = [];
+  events.forEach(event => {
+    let lane = laneEnds.findIndex(end => end <= event.s);
+    if (lane < 0) { lane = laneEnds.length; laneEnds.push(event.e); lanes.push([]); }
+    else laneEnds[lane] = event.e;
+    event.lane = lane;
+    lanes[lane].push(event);
+  });
+  const columns = Math.max(laneEnds.length, 1);
+  events.forEach(event => {
+    event.span = 1;
+    for (let lane = event.lane + 1; lane < columns; lane++) {
+      if (lanes[lane].some(other => other.s < event.e && other.e > event.s)) break;
+      event.span++;
+    }
+  });
+  return columns;
+}
 function renderMonth() {
   const first = monthStart(S.anchor), firstDate = new Date(first), offset = firstDate.getDay();
   const count = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0).getDate();
@@ -296,23 +316,10 @@ function render() {
       .filter(b => b.s < de && b.e > ds)
       .map(b => ({k, p: S.people[k], b, s: Math.max(b.s, ds), e: Math.min(b.e, de)})))
       .sort((a, b) => a.s - b.s || a.e - b.e || a.k.localeCompare(b.k));
-    const laneEnds = [], lanes = [];
+    const columns = layoutEvents(events);
     events.forEach(event => {
-      let lane = laneEnds.findIndex(end => end <= event.s);
-      if (lane < 0) { lane = laneEnds.length; laneEnds.push(event.e); lanes.push([]); }
-      else laneEnds[lane] = event.e;
-      event.lane = lane;
-      lanes[lane].push(event);
-    });
-    const columns = Math.max(laneEnds.length, 1);
-    events.forEach(event => {
-      let span = 1;
-      for (let lane = event.lane + 1; lane < columns; lane++) {
-        if (lanes[lane].some(other => other.s < event.e && other.e > event.s)) break;
-        span++;
-      }
       const {k, p, b, s, e} = event, me = k === key(S.name);
-      h += `<div class="ev${me ? ' me' + (S.selectedBlock === b.s ? ' selected' : '') : ''}"${me ? ` role="group" tabindex="0" data-s="${b.s}" data-e="${b.e}" data-segment-start="${s}" data-segment-end="${e}" aria-label="Availability ${fmtD(b.s)} ${fmtT(b.s)} to ${fmtD(b.e)} ${fmtT(b.e)}. Double-click or press Enter to edit."` : ''} style="${pos(b.s, b.e)};left:calc(${event.lane} * 100% / ${columns} + 1px);width:calc(${span} * 100% / ${columns} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
+      h += `<div class="ev${me ? ' me' + (S.selectedBlock === b.s ? ' selected' : '') : ''}"${me ? ` role="group" tabindex="0" data-s="${b.s}" data-e="${b.e}" data-segment-start="${s}" data-segment-end="${e}" aria-label="Availability ${fmtD(b.s)} ${fmtT(b.s)} to ${fmtD(b.e)} ${fmtT(b.e)}. Double-click or press Enter to edit."` : ''} style="${pos(b.s, b.e)};left:calc(${event.lane} * 100% / ${columns} + 1px);width:calc(${event.span} * 100% / ${columns} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
     });
     if (ds === today) h += `<div class="now" style="top:${(Date.now() - ds) / HOUR * hr}px"></div>`;
     return `<div class="col">${h}</div>`;
@@ -426,12 +433,18 @@ function ghost() {
   document.querySelectorAll('.ghost').forEach(g => g.remove());
   const r = S.resize ? S.resize.preview : S.drag ? rng(S.drag) : null;
   if (!r) return;
-  const D = days(), cols = document.querySelectorAll('.col');
+  const owner = key(S.name), own = merge([...mine().filter(b => !S.resize || b.s !== S.resize.start), r]);
+  const preview = own.find(b => b.s <= r.s && b.e >= r.e), D = days(), cols = document.querySelectorAll('.col');
   D.forEach((ds, i) => {
-    const de = addDays(ds, 1), start = Math.max(r.s, ds), end = Math.min(r.e, de);
-    if (end <= start) return;
+    const de = addDays(ds, 1);
+    const events = Object.entries(S.people).flatMap(([k, p]) => (k === owner ? own : p.blocks)
+      .filter(b => b.s < de && b.e > ds)
+      .map(b => ({k, p, b, s: Math.max(b.s, ds), e: Math.min(b.e, de)})));
+    const columns = layoutEvents(events), event = events.find(event => event.k === owner && event.b === preview);
+    if (!event) return;
+    const start = event.s, end = event.e;
     const el = document.createElement('div'); el.className = 'ev ghost';
-    el.style.cssText = `top:${(start - ds) / HOUR * S.hr}px;height:${(end - start) / HOUR * S.hr}px;left:1px;right:2px;--c:${colorOf(S.people[key(S.name)] || {})}`;
+    el.style.cssText = `top:${(start - ds) / HOUR * S.hr}px;height:${(end - start) / HOUR * S.hr}px;left:calc(${event.lane} * 100% / ${columns} + 1px);width:calc(${event.span} * 100% / ${columns} - 3px);border-radius:8px;--c:${colorOf(S.people[owner] || {})}`;
     el.innerHTML = `<b>${esc(S.name)}</b>${fmtT(start)} – ${fmtT(end)}`; cols[i].append(el);
   });
 }

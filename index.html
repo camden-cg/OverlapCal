@@ -274,7 +274,7 @@ function render() {
     renderMonth(); side(best, names); return;
   }
   if (!$('#head')) $('#scroll').innerHTML = '<div class="row" id="head"></div><div id="body"></div>';
-  const D = days(), today = startOfDay(Date.now()), n = Math.max(names.length, 1), hr = S.hr;
+  const D = days(), today = startOfDay(Date.now()), hr = S.hr;
   document.documentElement.style.setProperty('--hr', hr + 'px');
   $('#scroll').style.setProperty('--n', S.view);
   const a = new Date(D[0]), z = new Date(D[D.length - 1]), mo = d => d.toLocaleDateString([], {month: 'short'});
@@ -286,11 +286,28 @@ function render() {
     const de = addDays(ds, 1); let h = '';
     const pos = (s, e) => { const p = Math.max(s, ds), q = Math.min(e, de); return `top:${(p - ds) / HOUR * hr}px;height:${Math.max((q - p) / HOUR * hr, 16)}px`; };
     best.list.forEach(x => { if (x.s < de && x.e > ds) h += `<div class="best" style="${pos(x.s, x.e)}"></div>`; });
-    names.forEach((k, i) => S.people[k].blocks.forEach(b => {
-      if (b.s >= de || b.e <= ds) return;
-      const p = S.people[k], me = k === key(S.name), s = Math.max(b.s, ds), e = Math.min(b.e, de);
-      h += `<div class="ev${me ? ' me' : ''}"${me ? ` role="group" tabindex="0" data-s="${b.s}" data-e="${b.e}" aria-label="Availability ${fmtD(b.s)} ${fmtT(b.s)} to ${fmtD(b.e)} ${fmtT(b.e)}. Press Enter to edit."` : ''} style="${pos(b.s, b.e)};left:calc(${i} * 100% / ${n} + 1px);width:calc(100% / ${n} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
-    }));
+    const events = names.flatMap(k => S.people[k].blocks
+      .filter(b => b.s < de && b.e > ds)
+      .map(b => ({k, p: S.people[k], b, s: Math.max(b.s, ds), e: Math.min(b.e, de)})))
+      .sort((a, b) => a.s - b.s || a.e - b.e || a.k.localeCompare(b.k));
+    const laneEnds = [], lanes = [];
+    events.forEach(event => {
+      let lane = laneEnds.findIndex(end => end <= event.s);
+      if (lane < 0) { lane = laneEnds.length; laneEnds.push(event.e); lanes.push([]); }
+      else laneEnds[lane] = event.e;
+      event.lane = lane;
+      lanes[lane].push(event);
+    });
+    const columns = Math.max(laneEnds.length, 1);
+    events.forEach(event => {
+      let span = 1;
+      for (let lane = event.lane + 1; lane < columns; lane++) {
+        if (lanes[lane].some(other => other.s < event.e && other.e > event.s)) break;
+        span++;
+      }
+      const {k, p, b, s, e} = event, me = k === key(S.name);
+      h += `<div class="ev${me ? ' me' : ''}"${me ? ` role="group" tabindex="0" data-s="${b.s}" data-e="${b.e}" aria-label="Availability ${fmtD(b.s)} ${fmtT(b.s)} to ${fmtD(b.e)} ${fmtT(b.e)}. Press Enter to edit."` : ''} style="${pos(b.s, b.e)};left:calc(${event.lane} * 100% / ${columns} + 1px);width:calc(${span} * 100% / ${columns} - 3px);--c:${colorOf(p)}"><b>${esc(p.name)}</b>${e - s >= HOUR * .75 ? fmtT(s) + ' – ' + fmtT(e) : ''}${me ? `<button class="x" data-s="${b.s}" title="Remove">×</button>` : ''}</div>`;
+    });
     if (ds === today) h += `<div class="now" style="top:${(Date.now() - ds) / HOUR * hr}px"></div>`;
     return `<div class="col">${h}</div>`;
   }).join('');

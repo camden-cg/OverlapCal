@@ -435,10 +435,6 @@ function commit(d) {
 }
 function wire() {
   const body = $('#body'), inGutter = e => e.clientX - body.getBoundingClientRect().left < GUT;
-  const timeAt = e => {
-    const r = body.getBoundingClientRect(), w = (r.width - GUT) / S.view, d = Math.min(Math.max(Math.floor((e.clientX - r.left - GUT) / w), 0), S.view - 1);
-    return days()[d] + Math.max(0, Math.min(1440, (e.clientY - r.top) / S.hr * 60)) * 60000;
-  };
   body.onpointerdown = e => {
     if (e.target.closest('.x') || typeof S.view !== 'number' || inGutter(e)) return;
     if (e.pointerType === 'touch') {
@@ -449,7 +445,7 @@ function wire() {
         S.editCandidate = null; S.pinching = true; S.drag = null; ghost();
         S.pinchStart = {distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y), hr: S.hr, y: (points[0].y + points[1].y) / 2};
       } else {
-        const time = timeAt(e), block = e.target.closest('.ev.me') || mine().find(b => b.s <= time && time < b.e);
+        const block = e.target.closest('.ev.me');
         if (block) {
           S.editCandidate = +(block.dataset ? block.dataset.s : block.s);
           e.preventDefault(); body.setPointerCapture(e.pointerId);
@@ -457,7 +453,7 @@ function wire() {
       }
       return;
     }
-    const time = timeAt(e), block = e.target.closest('.ev.me') || mine().find(b => b.s <= time && time < b.e);
+    const block = e.target.closest('.ev.me');
     if (block) { S.editCandidate = +(block.dataset ? block.dataset.s : block.s); e.preventDefault(); body.setPointerCapture(e.pointerId); return; }
     S.editCandidate = null;
     S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();

@@ -66,9 +66,13 @@ aside h3:first-child{margin-top:0}
 .person-name small{color:inherit;opacity:.8}
 .person-name-picker{position:relative;display:inline-flex;align-items:center;cursor:pointer}
 .name-color-picker{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;opacity:0;cursor:pointer;appearance:none;-webkit-appearance:none}
-.slot-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
-.slot-form input[type=date],.slot-form button{grid-column:1/-1}
-.slot-form input{width:100%;min-width:0;padding:7px 8px}
+.slot-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 4px 8px}
+.slot-form input[type=date],.slot-form button,.time-toggle,.slot-time-fields{grid-column:1/-1}
+.slot-form input{width:100%;min-width:0;padding:8px 10px}
+.time-toggle{display:flex;align-items:center;gap:9px;padding:2px 4px;cursor:pointer}
+.time-toggle input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.slot-time-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.slot-time-fields[hidden]{display:none}
 .filter-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .filter-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:4px 7px;background:var(--panel);font-size:11px}
 .filter-chip button{border:0;background:none;cursor:pointer;padding:0 1px;font-size:15px;line-height:1}
@@ -398,7 +402,9 @@ function render() {
 
 function side(best, names) {
   const total = names.length, future = best.list.filter(x => x.e > Date.now()).slice(0, 8);
-  const timeLabel = x => `${fmtD(x.s)} · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}`;
+  const timeLabel = x => startOfDay(x.s) === x.s && x.e === addDays(x.s, 1)
+    ? `${fmtD(x.s)} · All day`
+    : `${fmtD(x.s)} · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}`;
   const anchor = new Date(S.anchor), miniMonth = anchor.getMonth(), miniYear = anchor.getFullYear();
   const first = new Date(miniYear, miniMonth, 1).getTime(), miniStart = addDays(first, -new Date(first).getDay());
   const miniCalendar = `<div class="mini-cal"><div class="mini-cal-head"><button class="ib" id="miniPrev" aria-label="Previous month">‹</button><b>${anchor.toLocaleDateString([], {month:'long',year:'numeric'})}</b><button class="ib" id="miniNext" aria-label="Next month">›</button></div><div class="mini-cal-grid">${['S','M','T','W','T','F','S'].map(d => `<span class="mini-cal-weekday">${d}</span>`).join('')}${Array.from({length:42}, (_, i) => {
@@ -426,7 +432,7 @@ function side(best, names) {
         `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b><br><small>${x.who.map(esc).join(', ')}</small></div>`).join('');
   $('#side').innerHTML = miniCalendar + '<h3>Everyone free</h3>' + (everyone || '<p class="muted" style="padding:0 8px">No times found when everyone is free.</p>')
     + bestSection
-    + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><input id="slotStart" type="time" aria-label="Start time" value="18:00" required><input id="slotEnd" type="time" aria-label="End time" value="19:00" required><button class="btn" type="submit">Add time filter</button></form>'
+    + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><label class="time-toggle"><input id="specificTime" type="checkbox"> Specific time</label><div id="slotTimeFields" class="slot-time-fields" hidden><input id="slotStart" type="time" aria-label="Start time" value="18:00"><input id="slotEnd" type="time" aria-label="End time" value="19:00"></div><button class="btn" type="submit">Add time filter</button></form>'
     + `<div class="filter-chips">${chips}</div><h3>People</h3>` + (people || '<p class="muted">Nobody yet.</p>')
     + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';
   $('#miniPrev').onclick = () => { const date = new Date(S.anchor); date.setDate(1); date.setMonth(date.getMonth() - 1); S.anchor = startOfDay(date.getTime()); render(); };
@@ -441,9 +447,16 @@ function side(best, names) {
   $('#side').onsubmit = e => {
     if (e.target.id !== 'slotForm') return;
     e.preventDefault();
-    const s = slotTime($('#slotDate').value, $('#slotStart').value), end = slotTime($('#slotDate').value, $('#slotEnd').value);
+    const date = $('#slotDate').value, specific = $('#specificTime').checked;
+    const s = specific ? slotTime(date, $('#slotStart').value) : slotTime(date, '00:00');
+    const end = specific ? slotTime(date, $('#slotEnd').value) : addDays(s, 1);
     if (end <= s) { toast('End time must be after start time.'); return; }
     S.filters.push({s, e: end}); render();
+  };
+  $('#specificTime').onchange = e => {
+    $('#slotTimeFields').hidden = !e.target.checked;
+    $('#slotStart').required = e.target.checked;
+    $('#slotEnd').required = e.target.checked;
   };
   $('#side').querySelectorAll('[data-remove-filter]').forEach(el => el.onclick = () => {
     S.filters.splice(+el.dataset.removeFilter, 1); render();

@@ -5,26 +5,31 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hangout Finder</title>
 <style>
-:root{--bg:#fff;--fg:#202124;--muted:#5f6368;--line:#dadce0;--accent:#1a73e8;--onaccent:#fff;--panel:#f1f3f4;--hr:48px;
+:root{--bg:#f8fafd;--surface:#fff;--fg:#202124;--muted:#5f6368;--line:#e1e5eb;--accent:#0b57d0;--onaccent:#fff;--panel:#edf2fa;--hr:48px;
   --evs:75%;--evl:86%;--evfg:22%;--evbar:45%;--best:rgba(52,168,83,.16)}
-@media(prefers-color-scheme:dark){:root{--bg:#202124;--fg:#e8eaed;--muted:#9aa0a6;--line:#3c4043;--accent:#8ab4f8;--onaccent:#202124;--panel:#303134;
+@media(prefers-color-scheme:dark){:root{--bg:#202124;--surface:#202124;--fg:#e8eaed;--muted:#9aa0a6;--line:#3c4043;--accent:#a8c7fa;--onaccent:#062e6f;--panel:#303134;
   --evs:35%;--evl:28%;--evfg:90%;--evbar:60%;--best:rgba(52,168,83,.25)}}
 *{box-sizing:border-box}
-body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px/1.4 "Google Sans",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px/1.45 "Google Sans",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
 button,select,input{font:inherit;color:inherit}
 input,select{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--bg)}
 #view{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
 .muted,small{color:var(--muted)}
-.btn{border:1px solid var(--line);background:none;border-radius:999px;padding:7px 16px;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 18px;cursor:pointer;transition:background .15s,box-shadow .15s}
 .btn:hover,.ib:hover{background:var(--panel)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
-.ib{width:36px;height:36px;border-radius:50%;border:0;background:none;cursor:pointer;font-size:22px;line-height:1}
-header{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.logo{font-size:20px;margin-right:8px}
-main{flex:1;display:flex;min-height:0}
-#scroll{flex:1;overflow-y:auto;min-width:0}
+.ib{width:40px;height:40px;border-radius:50%;border:0;background:none;cursor:pointer;font-size:22px;line-height:1;display:inline-grid;place-items:center;flex:0 0 auto}
+header{position:relative;z-index:20;display:flex;align-items:center;gap:10px;min-height:72px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:nowrap}
+.logo{display:flex;align-items:center;gap:11px;font-size:21px;font-weight:500;white-space:nowrap;margin-right:8px}
+.logo-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--accent);color:var(--onaccent);font-size:19px;font-weight:650}
+.toolbar-spacer{flex:1;min-width:8px}
+#ttl{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#range{min-width:155px;font-size:19px;font-weight:450;white-space:nowrap}
+main{position:relative;flex:1;display:flex;min-height:0}
+main.sidebar-collapsed aside{display:none}
+#scroll{order:2;flex:1;overflow-y:auto;min-width:0;margin:10px 14px 14px 0;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .row,#body{display:grid;grid-template-columns:56px repeat(var(--n),1fr)}
-#head{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);user-select:none;-webkit-user-select:none}
+#head{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);border-radius:14px 14px 0 0;user-select:none;-webkit-user-select:none}
 .dh{text-align:center;padding:6px 0;border-left:1px solid var(--line)}
 .dh small{display:block;font-size:11px;letter-spacing:.6px}
 .dh b{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:22px;font-weight:400}
@@ -32,7 +37,7 @@ main{flex:1;display:flex;min-height:0}
 #body{user-select:none;-webkit-user-select:none;touch-action:pan-y;cursor:crosshair}
 .gut{position:relative}
 .gut span{position:absolute;right:8px;transform:translateY(-50%);font-size:10px;color:var(--muted)}
-.col{position:relative;border-left:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% var(--hr)}
+.col{position:relative;border-left:1px solid var(--line);background-image:linear-gradient(color-mix(in srgb,var(--line) 72%,transparent) 1px,transparent 1px);background-size:100% var(--hr)}
 .ev{position:absolute;border-radius:8px;padding:3px 6px;overflow:hidden;font-size:12px;line-height:1.25;pointer-events:none;z-index:1;
   background:color-mix(in srgb,var(--c) 24%,var(--bg));color:var(--fg);border-left:4px solid var(--c);box-shadow:0 0 0 1px var(--bg)}
 .ev b{display:block}
@@ -51,11 +56,11 @@ main{flex:1;display:flex;min-height:0}
 .best{position:absolute;left:0;right:0;border-radius:8px;background:var(--best);outline:2px dashed #34a853;outline-offset:-2px;pointer-events:none}
 .now{position:absolute;left:0;right:0;height:2px;background:#ea4335;pointer-events:none;z-index:3}
 .now::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:#ea4335}
-aside{width:290px;border-left:1px solid var(--line);padding:16px;overflow:auto}
-aside h3{margin:16px 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+aside{order:1;flex:0 0 288px;width:288px;border-right:1px solid var(--line);padding:18px 14px;overflow:auto;background:var(--bg)}
+aside h3{margin:20px 8px 9px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:650}
 aside h3:first-child{margin-top:0}
-.item{padding:8px 12px;margin-bottom:6px;border-radius:12px;background:var(--panel);cursor:pointer}
-.item:hover{outline:2px solid var(--accent)}
+.item{padding:10px 12px;margin:0 4px 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
+.item:hover{border-color:var(--accent);background:var(--panel)}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
 .person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb,var(--person-color) 70%,var(--fg))}
 .person-name small{color:inherit;opacity:.8}
@@ -67,7 +72,7 @@ aside h3:first-child{margin-top:0}
 .filter-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .filter-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:4px 7px;background:var(--panel);font-size:11px}
 .filter-chip button{border:0;background:none;cursor:pointer;padding:0 1px;font-size:15px;line-height:1}
-.filter-person{padding:7px 8px;margin:5px 0;border-radius:8px;background:var(--panel)}
+.filter-person{padding:8px 10px;margin:5px 4px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .filter-person-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .person-ident{display:flex;align-items:center;gap:5px;min-width:0;flex:1}
 .filter-count{font-size:11px;color:var(--muted)}
@@ -84,6 +89,20 @@ aside h3:first-child{margin-top:0}
 .modal-buttons{justify-content:flex-end}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
 #toast.on{opacity:1}
+.mini-cal{padding:4px 7px 14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.mini-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mini-cal-head b{font-size:13px;font-weight:600}
+.mini-cal-head .ib{width:30px;height:30px;font-size:19px}
+.mini-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center}
+.mini-cal-weekday,.mini-cal-day{display:grid;place-items:center;min-width:0;height:30px;font-size:11px}
+.mini-cal-weekday{color:var(--muted);font-weight:600}
+.mini-cal-day{position:relative;border:0;border-radius:50%;background:transparent;cursor:pointer}
+.mini-cal-day:hover{background:var(--panel)}
+.mini-cal-day.other{color:var(--muted);opacity:.5}
+.mini-cal-day.today{color:var(--accent);font-weight:700}
+.mini-cal-day.selected{background:var(--accent);color:var(--onaccent)}
+.mini-cal-day.has::after{content:"";position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.mini-cal-day.selected.has::after{background:var(--onaccent)}
 .land{max-width:420px;margin:10vh auto;padding:0 20px;display:flex;flex-direction:column;gap:12px}
 .land a{color:var(--accent);text-decoration:none;padding:6px 0}
 .calendar-view{padding:18px;max-width:1100px;margin:0 auto}
@@ -107,7 +126,8 @@ aside h3:first-child{margin-top:0}
 .mini-grid .mini-day.has{background:color-mix(in srgb,var(--day-color) 28%,var(--bg))}
 .mini-grid .mini-day.overlap{outline:1px solid #34a853}
 @media(max-width:700px){.year-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.month-day{min-height:60px;padding:4px 1px}.availability-dots{gap:2px}}
-@media(max-width:800px){main{flex-direction:column}aside{width:auto;border-left:0;border-top:1px solid var(--line);max-height:38%}}
+@media(max-width:900px){header{padding:9px 14px;gap:6px}.logo{font-size:18px;margin-right:2px}#ttl{display:none}#range{min-width:120px;font-size:17px}aside{flex-basis:260px;width:260px}}
+@media(max-width:700px){header{min-height:62px;flex-wrap:wrap;padding:7px 10px;gap:4px}.logo{font-size:17px}.logo-mark{width:30px;height:30px}#range{min-width:auto;font-size:15px}#view{max-width:112px;padding:8px 26px 8px 10px;background-position:calc(100% - 13px) 50%,calc(100% - 8px) 50%}header .btn{padding:7px 11px}.toolbar-spacer{display:none}main{overflow:hidden}aside{position:absolute;inset:0 auto 0 0;z-index:15;width:min(320px,88vw);max-height:none;box-shadow:0 10px 24px rgba(0,0,0,.18);transform:translateX(-105%);transition:transform .2s ease}main.sidebar-open aside{transform:translateX(0)}#scroll{margin:7px;border-radius:12px}.row,#body{grid-template-columns:48px repeat(var(--n),minmax(58px,1fr))}}
 </style>
 </head>
 <body>
@@ -331,6 +351,12 @@ function render() {
 function side(best, names) {
   const total = names.length, future = best.list.filter(x => x.e > Date.now()).slice(0, 8);
   const timeLabel = x => `${fmtD(x.s)} · ${fmtT(x.s)} – ${startOfDay(x.s) === startOfDay(x.e - 1) ? '' : fmtD(x.e - 1) + ' '}${fmtT(x.e)}`;
+  const anchor = new Date(S.anchor), miniMonth = anchor.getMonth(), miniYear = anchor.getFullYear();
+  const first = new Date(miniYear, miniMonth, 1).getTime(), miniStart = addDays(first, -new Date(first).getDay());
+  const miniCalendar = `<div class="mini-cal"><div class="mini-cal-head"><button class="ib" id="miniPrev" aria-label="Previous month">‹</button><b>${anchor.toLocaleDateString([], {month:'long',year:'numeric'})}</b><button class="ib" id="miniNext" aria-label="Next month">›</button></div><div class="mini-cal-grid">${['S','M','T','W','T','F','S'].map(d => `<span class="mini-cal-weekday">${d}</span>`).join('')}${Array.from({length:42}, (_, i) => {
+    const day = addDays(miniStart, i), date = new Date(day), inMonth = date.getMonth() === miniMonth, has = Object.values(S.people).some(p => availableOn(p, day, addDays(day, 1)));
+    return `<button class="mini-cal-day${inMonth ? '' : ' other'}${day === startOfDay(Date.now()) ? ' today' : ''}${day === startOfDay(S.anchor) ? ' selected' : ''}${has ? ' has' : ''}" data-mini-date="${day}" aria-label="${date.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'})}">${date.getDate()}</button>`;
+  }).join('')}</div></div>`;
   const everyone = best.everyone.map(x => `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b></div>`).join('');
   const chips = S.filters.map((f, i) => `<span class="filter-chip"><span>${timeLabel(f)}</span><button type="button" data-remove-filter="${i}" aria-label="Remove time filter">×</button></span>`).join('');
   const ranked = names.map(k => {
@@ -350,11 +376,19 @@ function side(best, names) {
     : best.max === total ? ''
       : '<h3>Best overlap</h3>' + `<p class="muted">${best.max} of ${total} people free</p>` + future.map(x =>
         `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b><br><small>${x.who.map(esc).join(', ')}</small></div>`).join('');
-  $('#side').innerHTML = '<h3>Everyone free</h3>' + (everyone || '<p class="muted">No times found when everyone is free.</p>')
+  $('#side').innerHTML = miniCalendar + '<h3>Everyone free</h3>' + (everyone || '<p class="muted" style="padding:0 8px">No times found when everyone is free.</p>')
     + bestSection
     + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><input id="slotStart" type="time" aria-label="Start time" value="18:00" required><input id="slotEnd" type="time" aria-label="End time" value="19:00" required><button class="btn" type="submit">Add time filter</button></form>'
     + `<div class="filter-chips">${chips}</div><h3>People</h3>` + (people || '<p class="muted">Nobody yet.</p>')
     + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';
+  $('#miniPrev').onclick = () => { const date = new Date(S.anchor); date.setDate(1); date.setMonth(date.getMonth() - 1); S.anchor = startOfDay(date.getTime()); render(); };
+  $('#miniNext').onclick = () => { const date = new Date(S.anchor); date.setDate(1); date.setMonth(date.getMonth() + 1); S.anchor = startOfDay(date.getTime()); render(); };
+  $('#side').querySelectorAll('[data-mini-date]').forEach(el => el.onclick = () => {
+    S.anchor = +el.dataset.miniDate;
+    if (typeof S.view !== 'number') S.view = 1;
+    render(); $('#scroll').scrollTop = 7 * S.hr;
+    $('main').classList.remove('sidebar-open');
+  });
   $('#clear').onclick = () => mine().length && confirm('Remove all your free times?') && save([]);
   $('#side').onsubmit = e => {
     if (e.target.id !== 'slotForm') return;
@@ -673,8 +707,8 @@ async function sync() {
 }
 
 async function group() {
-  document.body.innerHTML = `<header><b class="logo">Hangout Finder</b><span id="ttl" class="muted"></span><span style="flex:1"></span>
-    <button class="btn" id="today">Today</button><button class="ib" id="prev">‹</button><button class="ib" id="next">›</button><b id="range" style="min-width:150px"></b>
+  document.body.innerHTML = `<header><button class="ib" id="menu" aria-label="Toggle sidebar" title="Toggle sidebar">☰</button><b class="logo"><span class="logo-mark">H</span>Hangout Finder</b><span id="ttl" class="muted"></span><span class="toolbar-spacer"></span>
+    <button class="btn" id="today">Today</button><button class="ib" id="prev" aria-label="Previous date range">‹</button><button class="ib" id="next" aria-label="Next date range">›</button><b id="range"></b>
     <select id="view"><option value="1">Day</option><option value="3">3 days</option><option value="7">Week</option><option value="14">2 weeks</option><option value="month">Month</option><option value="year">Year</option></select>
     <button class="btn" id="copy">Copy invite link</button><button class="btn" id="who"></button></header>
     <main><div id="scroll" aria-label="Calendar: hold Control or Command while scrolling to zoom, or use a two-finger pinch"><div class="row" id="head"></div><div id="body"></div></div><aside id="side"></aside></main><div id="toast"></div>`;
@@ -687,6 +721,10 @@ async function group() {
     render();
   };
   $('#prev').onclick = () => step(-1); $('#next').onclick = () => step(1);
+  $('#menu').onclick = () => {
+    const main = $('main');
+    main.classList.toggle(innerWidth <= 700 ? 'sidebar-open' : 'sidebar-collapsed');
+  };
   $('#today').onclick = () => { S.anchor = startOfDay(Date.now()); render(); };
   $('#view').onchange = e => {
     const value = e.target.value;

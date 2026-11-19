@@ -36,7 +36,8 @@ main{flex:1;display:flex;min-height:0}
 .ev{position:absolute;border-radius:8px;padding:3px 6px;overflow:hidden;font-size:12px;line-height:1.25;pointer-events:none;z-index:1;
   background:color-mix(in srgb,var(--c) 24%,var(--bg));color:var(--fg);border-left:4px solid var(--c);box-shadow:0 0 0 1px var(--bg)}
 .ev b{display:block}
-.ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35);pointer-events:auto;cursor:pointer}
+.ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35);pointer-events:auto;cursor:grab;touch-action:none}
+.ev.me:active{cursor:grabbing}
 .ev.me.selected{outline:2px solid var(--accent);outline-offset:1px}
 .ev.me::before,.ev.me::after{content:"";position:absolute;left:0;right:0;height:7px;border-radius:999px;cursor:ns-resize;z-index:2;opacity:0}
 .ev.me::before{top:0}
@@ -190,7 +191,7 @@ function remember(id, title) {
 }
 
 // ---- group page ----
-const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, editCandidate: null, selectedBlock: null, resize: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map(), filters: []};
+const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, editCandidate: null, selectedBlock: null, resize: null, move: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map(), filters: []};
 const mine = () => (S.people[key(S.name)] || {}).blocks || [];
 const days = () => { const count = +S.view, s = count >= 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: count}, (_, i) => addDays(s, i)); };
 const monthStart = t => { const d = new Date(t); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -431,9 +432,10 @@ function cellAt(e) {
 }
 function ghost() {
   document.querySelectorAll('.ghost').forEach(g => g.remove());
-  const r = S.resize ? S.resize.preview : S.drag ? rng(S.drag) : null;
+  const change = S.resize || (S.move?.active ? S.move : null);
+  const r = change ? change.preview : S.drag ? rng(S.drag) : null;
   if (!r) return;
-  const owner = key(S.name), own = merge([...mine().filter(b => !S.resize || b.s !== S.resize.start), r]);
+  const owner = key(S.name), own = merge([...mine().filter(b => !change || b.s !== change.start), r]);
   const preview = own.find(b => b.s <= r.s && b.e >= r.e), D = days(), cols = document.querySelectorAll('.col');
   D.forEach((ds, i) => {
     const de = addDays(ds, 1);
@@ -476,6 +478,23 @@ function wire() {
       : {s: r.original.s, e: Math.max(time, r.original.s + 30 * 60000)};
     ghost();
   };
+  const moveTo = e => {
+    const move = S.move;
+    if (!move) return;
+    if (!move.active) {
+      if (Math.hypot(e.clientX - move.startX, e.clientY - move.startY) < 4) return;
+      move.active = true; S.editCandidate = null; body.setPointerCapture(e.pointerId);
+    }
+    const c = cellAt(e), time = days()[c.d] + c.m * 60000, delta = time - move.pointerTime;
+    move.preview = {s: move.original.s + delta, e: move.original.e + delta};
+    ghost();
+  };
+  const selectBlock = start => {
+    S.selectedBlock = start;
+    document.querySelectorAll('.ev.me.selected').forEach(el => el.classList.remove('selected'));
+    const selected = [...document.querySelectorAll('.ev.me')].find(el => +el.dataset.s === start);
+    selected?.classList.add('selected');
+  };
   body.onpointerdown = e => {
     if (e.target.closest('.x') || typeof S.view !== 'number' || inGutter(e)) return;
     if (e.pointerType === 'touch') {
@@ -483,17 +502,20 @@ function wire() {
       if (S.touchPoints.size === 2 && typeof S.view === 'number') {
         const points = [...S.touchPoints.values()];
         S.touchPoints.forEach((point, id) => body.setPointerCapture(id));
-        S.editCandidate = null; S.pinching = true; S.drag = null; ghost();
+        S.editCandidate = null; S.move = null; S.pinching = true; S.drag = null; ghost();
         S.pinchStart = {distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y), hr: S.hr, y: (points[0].y + points[1].y) / 2};
       } else {
         const block = e.target.closest('.ev.me');
         if (block) {
-          S.editCandidate = +(block.dataset ? block.dataset.s : block.s);
+          const start = +block.dataset.s, c = cellAt(e);
+          S.move = {start, original: {s: start, e: +block.dataset.e}, startX: e.clientX, startY: e.clientY,
+            pointerTime: days()[c.d] + c.m * 60000, active: false, preview: {s: start, e: +block.dataset.e}};
+          S.editCandidate = start;
           const edge = resizeEdgeAt(block, e);
           if (edge) {
-            const original = {s: +block.dataset.s, e: +block.dataset.e};
+            const original = S.move.original;
             S.resize = {start: original.s, edge, original, preview: original};
-            S.editCandidate = null; block.classList.add('resize-' + edge); e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
+            S.move = null; S.editCandidate = null; block.classList.add('resize-' + edge); e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
           }
         } else S.editCandidate = null;
       }
@@ -501,16 +523,19 @@ function wire() {
     }
     const block = e.target.closest('.ev.me');
     if (block) {
-      S.editCandidate = +block.dataset.s;
+      const start = +block.dataset.s, c = cellAt(e);
+      S.move = {start, original: {s: start, e: +block.dataset.e}, startX: e.clientX, startY: e.clientY,
+        pointerTime: days()[c.d] + c.m * 60000, active: false, preview: {s: start, e: +block.dataset.e}};
+      S.editCandidate = start;
       const edge = resizeEdgeAt(block, e);
       if (edge) {
-        const original = {s: +block.dataset.s, e: +block.dataset.e};
+        const original = S.move.original;
         S.resize = {start: original.s, edge, original, preview: original};
-        S.editCandidate = null; block.classList.add('resize-' + edge); e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
+        S.move = null; S.editCandidate = null; block.classList.add('resize-' + edge); e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
       }
       return;
     }
-    S.editCandidate = null;
+    S.editCandidate = null; S.move = null;
     S.drag = {a: cellAt(e), b: cellAt(e), moved: false}; body.setPointerCapture(e.pointerId); ghost();
   };
   body.onpointermove = e => {
@@ -518,6 +543,7 @@ function wire() {
       if (!S.touchPoints.has(e.pointerId)) return;
       S.touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY});
       if (S.resize) { resizeTo(e); return; }
+      if (S.move && S.touchPoints.size === 1) { moveTo(e); return; }
       updateResizeHandle(e);
       if (S.pinching && S.touchPoints.size === 2 && S.pinchStart) {
         const points = [...S.touchPoints.values()];
@@ -527,6 +553,7 @@ function wire() {
       return;
     }
     if (S.resize) { resizeTo(e); return; }
+    if (S.move) { moveTo(e); return; }
     if (!S.drag) updateResizeHandle(e);
     if (!S.drag || S.drag.tap) return;
     const b = cellAt(e); S.drag.moved = S.drag.moved || b.d !== S.drag.a.d || b.m !== S.drag.a.m; S.drag.b = b; ghost();
@@ -555,12 +582,16 @@ function wire() {
       }
       return;
     }
-    if (S.editCandidate !== null) {
-      const start = S.editCandidate; S.editCandidate = null; S.selectedBlock = start;
-      document.querySelectorAll('.ev.me.selected').forEach(el => el.classList.remove('selected'));
-      const selected = [...document.querySelectorAll('.ev.me')].find(el => +el.dataset.s === start);
-      selected?.classList.add('selected');
+    if (S.move) {
+      const move = S.move; S.move = null; S.editCandidate = null; ghost();
+      if (move.active && (move.preview.s !== move.original.s || move.preview.e !== move.original.e)) {
+        S.selectedBlock = move.preview.s;
+        save(merge([...mine().filter(b => b.s !== move.start), move.preview]));
+      } else selectBlock(move.start);
       return;
+    }
+    if (S.editCandidate !== null) {
+      const start = S.editCandidate; S.editCandidate = null; selectBlock(start); return;
     }
     if (typeof S.view !== 'number') return;
     if (e.target.closest('.ev.me')) return;
@@ -572,7 +603,7 @@ function wire() {
     } else if (S.drag) { S.drag.b = c; commit(S.drag); }
   };
   body.onpointercancel = e => {
-    S.editCandidate = null; S.resize = null; ghost();
+    S.editCandidate = null; S.resize = null; S.move = null; ghost();
     document.querySelectorAll('.ev.me.resize-start,.ev.me.resize-end').forEach(el => el.classList.remove('resize-start', 'resize-end'));
     if (e.pointerType === 'touch') {
       S.touchPoints.delete(e.pointerId);
@@ -595,7 +626,7 @@ function wire() {
     const block = e.target.closest('.ev.me');
     if (block && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); editBlock(+block.dataset.s, +block.dataset.e); }
   };
-  document.onkeydown = e => { if (e.key === 'Escape') { S.drag = null; ghost(); } };
+  document.onkeydown = e => { if (e.key === 'Escape') { S.drag = null; S.move = null; ghost(); } };
 }
 
 

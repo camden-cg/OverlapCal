@@ -218,7 +218,7 @@ function remember(id, title) {
 }
 
 // ---- group page ----
-const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, dateDrag: null, suppressDateClick: false, editCandidate: null, selectedBlock: null, resize: null, move: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map(), filters: []};
+const S = {people: {}, title: '', name: '', view: innerWidth < 700 ? 3 : 7, anchor: startOfDay(Date.now()), drag: null, dateDrag: null, suppressDateClick: false, specificAvailabilityTime: false, availabilityStart: '18:00', availabilityEnd: '19:00', editCandidate: null, selectedBlock: null, resize: null, move: null, pending: 0, hr: HR, pinching: false, pinchStart: null, touchPoints: new Map(), filters: []};
 const mine = () => (S.people[key(S.name)] || {}).blocks || [];
 const days = () => { const count = +S.view, s = count >= 7 ? addDays(S.anchor, -new Date(S.anchor).getDay()) : S.anchor; return Array.from({length: count}, (_, i) => addDays(s, i)); };
 const monthStart = t => { const d = new Date(t); d.setDate(1); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -309,7 +309,15 @@ function wireDateRangeDrag(container, selector) {
     setTimeout(() => { S.suppressDateClick = false; }, 0);
     container.querySelectorAll('.range-selected').forEach(el => el.classList.remove('range-selected'));
     const first = startOfDay(Math.min(drag.start, drag.end)), last = startOfDay(Math.max(drag.start, drag.end));
-    save(merge([...mine(), {s: first, e: addDays(last, 1)}]));
+    const dates = [];
+    for (let day = first; day <= last; day = addDays(day, 1)) dates.push(day);
+    if (S.specificAvailabilityTime) {
+      if (S.availabilityEnd <= S.availabilityStart) { toast('End time must be after start time.'); return; }
+      save(merge([...mine(), ...dates.map(day => ({
+        s: slotTime(inputDate(day), S.availabilityStart),
+        e: slotTime(inputDate(day), S.availabilityEnd)
+      }))]));
+    } else save(merge([...mine(), {s: first, e: addDays(last, 1)}]));
   };
   container.onpointercancel = e => {
     if (!S.dateDrag || S.dateDrag.pointerId !== e.pointerId) return;
@@ -430,9 +438,10 @@ function side(best, names) {
     : best.max === total ? ''
       : '<h3>Best overlap</h3>' + `<p class="muted">${best.max} of ${total} people free</p>` + future.map(x =>
         `<div class="item" data-start="${x.s}"><b>${timeLabel(x)}</b><br><small>${x.who.map(esc).join(', ')}</small></div>`).join('');
-  $('#side').innerHTML = miniCalendar + '<h3>Everyone free</h3>' + (everyone || '<p class="muted" style="padding:0 8px">No times found when everyone is free.</p>')
+  const availabilityCreator = `<section class="creator-settings"><h3>New availability</h3><label class="time-toggle"><input id="availabilitySpecific" type="checkbox"${S.specificAvailabilityTime ? ' checked' : ''}> Specific time</label><div id="availabilityHours" class="slot-time-fields"${S.specificAvailabilityTime ? '' : ' hidden'}><input id="availabilityStart" type="time" aria-label="Availability start time" value="${S.availabilityStart}"${S.specificAvailabilityTime ? ' required' : ''}><input id="availabilityEnd" type="time" aria-label="Availability end time" value="${S.availabilityEnd}"${S.specificAvailabilityTime ? ' required' : ''}></div><p class="muted" style="margin:4px 8px 0"><small>Drag dates in Month or Year view to add availability.</small></p></section>`;
+  $('#side').innerHTML = miniCalendar + availabilityCreator + '<h3>Everyone free</h3>' + (everyone || '<p class="muted" style="padding:0 8px">No times found when everyone is free.</p>')
     + bestSection
-    + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><label class="time-toggle"><input id="specificTime" type="checkbox"> Specific time</label><div id="slotTimeFields" class="slot-time-fields" hidden><input id="slotStart" type="time" aria-label="Start time" value="18:00"><input id="slotEnd" type="time" aria-label="End time" value="19:00"></div><button class="btn" type="submit">Add time filter</button></form>'
+    + '<h3>Check availability</h3><form id="slotForm" class="slot-form"><input id="slotDate" type="date" aria-label="Day" value="' + inputDate(Date.now()) + '" required><input id="slotStart" type="time" aria-label="Start time" value="18:00" required><input id="slotEnd" type="time" aria-label="End time" value="19:00" required><button class="btn" type="submit">Add time filter</button></form>'
     + `<div class="filter-chips">${chips}</div><h3>People</h3>` + (people || '<p class="muted">Nobody yet.</p>')
     + '<p style="margin-top:16px"><button class="btn" id="clear">Clear my times</button></p><p class="muted"><small>Anyone with this link can see and edit this group.</small></p>';
   $('#miniPrev').onclick = () => { const date = new Date(S.anchor); date.setDate(1); date.setMonth(date.getMonth() - 1); S.anchor = startOfDay(date.getTime()); render(); };
@@ -444,6 +453,14 @@ function side(best, names) {
     $('main').classList.remove('sidebar-open');
   });
   $('#clear').onclick = () => mine().length && confirm('Remove all your free times?') && save([]);
+  $('#availabilitySpecific').onchange = e => {
+    S.specificAvailabilityTime = e.target.checked;
+    $('#availabilityHours').hidden = !S.specificAvailabilityTime;
+    $('#availabilityStart').required = S.specificAvailabilityTime;
+    $('#availabilityEnd').required = S.specificAvailabilityTime;
+  };
+  $('#availabilityStart').onchange = e => { S.availabilityStart = e.target.value; };
+  $('#availabilityEnd').onchange = e => { S.availabilityEnd = e.target.value; };
   $('#side').onsubmit = e => {
     if (e.target.id !== 'slotForm') return;
     e.preventDefault();
@@ -452,11 +469,6 @@ function side(best, names) {
     const end = specific ? slotTime(date, $('#slotEnd').value) : addDays(s, 1);
     if (end <= s) { toast('End time must be after start time.'); return; }
     S.filters.push({s, e: end}); render();
-  };
-  $('#specificTime').onchange = e => {
-    $('#slotTimeFields').hidden = !e.target.checked;
-    $('#slotStart').required = e.target.checked;
-    $('#slotEnd').required = e.target.checked;
   };
   $('#side').querySelectorAll('[data-remove-filter]').forEach(el => el.onclick = () => {
     S.filters.splice(+el.dataset.removeFilter, 1); render();

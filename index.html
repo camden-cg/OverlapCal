@@ -38,11 +38,11 @@ main{flex:1;display:flex;min-height:0}
 .ev b{display:block}
 .ev.me{box-shadow:0 0 0 1px var(--bg),0 1px 4px rgba(0,0,0,.35);pointer-events:auto;cursor:pointer}
 .ev.me.selected{outline:2px solid var(--accent);outline-offset:1px}
-.ev.me::before,.ev.me::after{content:"";position:absolute;left:0;right:0;height:7px;border-radius:999px;cursor:ns-resize;z-index:2}
+.ev.me::before,.ev.me::after{content:"";position:absolute;left:0;right:0;height:7px;border-radius:999px;cursor:ns-resize;z-index:2;opacity:0}
 .ev.me::before{top:0}
 .ev.me::after{bottom:0}
-.ev.me:hover::before,.ev.me:hover::after{background:var(--c);opacity:.65}
-@media(hover:none){.ev.me::before,.ev.me::after{background:var(--c);opacity:.55}}
+.ev.me.resize-start::before,.ev.me.resize-end::after{background:var(--c);opacity:.65}
+@media(hover:none){.ev.me.resize-start::before,.ev.me.resize-end::after{opacity:.55}}
 .ev.ghost{opacity:.8;outline:2px dashed var(--c);z-index:2}
 .x{position:absolute;top:2px;right:2px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.15);cursor:pointer;pointer-events:auto;display:none;line-height:1;font-size:13px;padding:0}
 .ev.me:hover .x{display:block}
@@ -455,6 +455,19 @@ function commit(d) {
 }
 function wire() {
   const body = $('#body'), inGutter = e => e.clientX - body.getBoundingClientRect().left < GUT;
+  const resizeEdgeAt = (block, e) => {
+    const rect = block.getBoundingClientRect(), top = e.clientY - rect.top, bottom = rect.bottom - e.clientY;
+    const canStart = +block.dataset.s >= +block.dataset.segmentStart && top <= 9;
+    const canEnd = +block.dataset.e <= +block.dataset.segmentEnd && bottom <= 9;
+    return canStart || canEnd ? canStart && (!canEnd || top <= bottom) ? 'start' : 'end' : null;
+  };
+  const updateResizeHandle = e => {
+    document.querySelectorAll('.ev.me.resize-start,.ev.me.resize-end').forEach(el => el.classList.remove('resize-start', 'resize-end'));
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    if (target?.closest('.x')) return;
+    const block = target?.closest('.ev.me'), edge = block && resizeEdgeAt(block, e);
+    if (edge) block.classList.add('resize-' + edge);
+  };
   const resizeTo = e => {
     if (!S.resize) return;
     const c = cellAt(e), time = days()[c.d] + c.m * 60000, r = S.resize;
@@ -476,14 +489,11 @@ function wire() {
         const block = e.target.closest('.ev.me');
         if (block) {
           S.editCandidate = +(block.dataset ? block.dataset.s : block.s);
-          const rect = block.getBoundingClientRect(), top = e.clientY - rect.top, bottom = rect.bottom - e.clientY;
-          const canResizeStart = +block.dataset.s >= +block.dataset.segmentStart && top <= 9;
-          const canResizeEnd = +block.dataset.e <= +block.dataset.segmentEnd && bottom <= 9;
-          if (canResizeStart || canResizeEnd) {
-            const edge = canResizeStart && (!canResizeEnd || top <= bottom) ? 'start' : 'end';
+          const edge = resizeEdgeAt(block, e);
+          if (edge) {
             const original = {s: +block.dataset.s, e: +block.dataset.e};
             S.resize = {start: original.s, edge, original, preview: original};
-            S.editCandidate = null; e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
+            S.editCandidate = null; block.classList.add('resize-' + edge); e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
           }
         } else S.editCandidate = null;
       }
@@ -492,14 +502,11 @@ function wire() {
     const block = e.target.closest('.ev.me');
     if (block) {
       S.editCandidate = +block.dataset.s;
-      const rect = block.getBoundingClientRect(), top = e.clientY - rect.top, bottom = rect.bottom - e.clientY;
-      const canResizeStart = +block.dataset.s >= +block.dataset.segmentStart && top <= 9;
-      const canResizeEnd = +block.dataset.e <= +block.dataset.segmentEnd && bottom <= 9;
-      if (canResizeStart || canResizeEnd) {
-        const edge = canResizeStart && (!canResizeEnd || top <= bottom) ? 'start' : 'end';
+      const edge = resizeEdgeAt(block, e);
+      if (edge) {
         const original = {s: +block.dataset.s, e: +block.dataset.e};
         S.resize = {start: original.s, edge, original, preview: original};
-        S.editCandidate = null; e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
+        S.editCandidate = null; block.classList.add('resize-' + edge); e.preventDefault(); body.setPointerCapture(e.pointerId); ghost();
       }
       return;
     }
@@ -511,6 +518,7 @@ function wire() {
       if (!S.touchPoints.has(e.pointerId)) return;
       S.touchPoints.set(e.pointerId, {x: e.clientX, y: e.clientY});
       if (S.resize) { resizeTo(e); return; }
+      updateResizeHandle(e);
       if (S.pinching && S.touchPoints.size === 2 && S.pinchStart) {
         const points = [...S.touchPoints.values()];
         const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
@@ -519,6 +527,7 @@ function wire() {
       return;
     }
     if (S.resize) { resizeTo(e); return; }
+    if (!S.drag) updateResizeHandle(e);
     if (!S.drag || S.drag.tap) return;
     const b = cellAt(e); S.drag.moved = S.drag.moved || b.d !== S.drag.a.d || b.m !== S.drag.a.m; S.drag.b = b; ghost();
   };
@@ -533,6 +542,7 @@ function wire() {
     }
     if (S.resize) {
       const resize = S.resize; S.resize = null; ghost();
+      document.querySelectorAll('.ev.me.resize-start,.ev.me.resize-end').forEach(el => el.classList.remove('resize-start', 'resize-end'));
       const {s, e: end} = resize.preview;
       if (s !== resize.original.s || end !== resize.original.e) {
         S.selectedBlock = s;
@@ -563,6 +573,7 @@ function wire() {
   };
   body.onpointercancel = e => {
     S.editCandidate = null; S.resize = null; ghost();
+    document.querySelectorAll('.ev.me.resize-start,.ev.me.resize-end').forEach(el => el.classList.remove('resize-start', 'resize-end'));
     if (e.pointerType === 'touch') {
       S.touchPoints.delete(e.pointerId);
       if (!S.touchPoints.size) { S.pinching = false; S.pinchStart = null; }
